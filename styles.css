@@ -1,0 +1,132 @@
+/* Injected Bar on YouTube Search Page */
+#yt-year-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--yt-spec-badge-chip-background, rgba(255, 255, 255, 0.1));
+  color: var(--yt-spec-text-primary, #fff);
+  padding: 10px 16px;
+  border-radius: 12px;
+  margin: 12px 0;
+  font-family: "Roboto", "Arial", sans-serif;
+  font-size: 14px;
+  border: 1px solid var(--yt-spec-10-percent-layer, rgba(255, 255, 255, 0.15));
+  flex-wrap: wrap;
+}
+
+html:not([dark]) #yt-year-filter-bar {
+  background: #f2f2f2;
+  color: #0f0f0f;
+  border-color: #e5e5e5;
+}
+
+#yt-year-filter-bar .yt-yf-title {
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #ff0000;
+}
+
+html[dark] #yt-year-filter-bar .yt-yf-title {
+  color: #ff4e45;
+}
+
+#yt-year-filter-bar select,
+#yt-year-filter-bar input[type="number"] {
+  background: var(--yt-spec-brand-background-primary, #0f0f0f);
+  color: var(--yt-spec-text-primary, #fff);
+  border: 1px solid var(--yt-spec-10-percent-layer, rgba(255, 255, 255, 0.2));
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+}
+
+html:not([dark]) #yt-year-filter-bar select,
+html:not([dark]) #yt-year-filter-bar input[type="number"] {
+  background: #ffffff;
+  color: #0f0f0f;
+  border-color: #ccc;
+}
+
+#yt-year-filter-bar button {
+  background: #cc0000;
+  color: #ffffff;
+  border: none;
+  border-radius: 18px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+#yt-year-filter-bar button:hover {
+  background: #ff0000;
+}
+
+#yt-year-filter-bar button.yt-yf-clear {
+  background: transparent;
+  color: var(--yt-spec-text-secondary, #aaa);
+  border: 1px solid var(--yt-spec-10-percent-layer, rgba(255, 255, 255, 0.2));
+}
+
+html:not([dark]) #yt-year-filter-bar button.yt-yf-clear {
+  color: #606060;
+  border-color: #ccc;
+}
+
+#yt-year-filter-bar button.yt-yf-clear:hover {
+  background: rgba(128, 128, 128, 0.15);
+}
+
+#yt-year-filter-bar .yt-yf-QuickYears {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+#yt-year-filter-bar .yt-yf-chip {
+  background: rgba(128, 128, 128, 0.15);
+  color: inherit;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+}
+
+#yt-year-filter-bar .yt-yf-chip:hover {
+  background: rgba(128, 128, 128, 0.3);
+}
+
+#yt-year-filter-bar .yt-yf-chip.active {
+  background: #cc0000;
+  color: #fff;
+  font-weight: 600;
+}
+
+#yt-year-filter-bar .yt-yf-status {
+  margin-left: auto;
+  font-size: 12px;
+  opacity: 0.85;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#yt-year-filter-bar label.yt-yf-strict-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 13px;
+}
+
+.yt-yf-hidden-by-year {
+  display: none !important;
+}

@@ -1,0 +1,12 @@
+# OS generated files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editor directories
+.vscode/
+.idea/
+
+# Build artifacts
+web-ext-artifacts/
+*.xpi

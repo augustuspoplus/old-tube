@@ -1,0 +1,23 @@
+{
+  "manifest_version": 2,
+  "name": "YouTube Year Time Machine",
+  "version": "1.0.0",
+  "description": "Filter YouTube search results to only show videos from a specific year or custom date range.",
+  "permissions": [
+    "*://*.youtube.com/*",
+    "storage",
+    "tabs"
+  ],
+  "browser_action": {
+    "default_popup": "popup.html",
+    "default_title": "YouTube Year Filter"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
