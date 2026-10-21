@@ -5,7 +5,7 @@
   gap: 10px;
   background: var(--yt-spec-badge-chip-background, rgba(255, 255, 255, 0.08));
   color: var(--yt-spec-text-primary, #f1f1f1);
-  padding: 10px 14px;
+  padding: 12px 14px;
   border-radius: 12px;
   margin: 12px 0;
   font-family: "Roboto", "Arial", sans-serif;
@@ -21,21 +21,20 @@ html:not([dark]) #yt-year-filter-bar {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
 }
 
-#yt-year-filter-bar .yt-yf-main-row {
+#yt-year-filter-bar .yt-yf-top-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
 #yt-year-filter-bar .yt-yf-brand {
   font-weight: 600;
-  font-size: 13.5px;
+  font-size: 14px;
   display: flex;
   align-items: center;
   gap: 7px;
   color: var(--yt-spec-text-primary, #fff);
-  padding-right: 4px;
   white-space: nowrap;
 }
 
@@ -57,56 +56,14 @@ html:not([dark]) #yt-year-filter-bar .yt-yf-brand {
   box-shadow: 0 0 8px rgba(255, 0, 51, 0.7);
 }
 
-/* Active Year Tags */
-#yt-year-filter-bar .yt-yf-active-tags,
-#yt-year-sidebar-widget .yt-yf-sb-active-tags {
+/* Unified All-Years List (2005 – 2026) */
+#yt-year-filter-bar .yt-yf-all-years {
   display: flex;
-  align-items: center;
-  gap: 5px;
   flex-wrap: wrap;
-}
-
-#yt-year-sidebar-widget .yt-yf-sb-active-tags:empty {
-  display: none;
-}
-
-.yt-yf-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  background: #cc0000;
-  color: #fff;
-  line-height: 1.2;
-}
-
-.yt-yf-tag-remove {
-  background: transparent !important;
-  border: none !important;
-  color: inherit !important;
-  padding: 0 2px !important;
-  font-size: 13px !important;
-  line-height: 1 !important;
-  cursor: pointer;
-  opacity: 0.85;
-}
-
-.yt-yf-tag-remove:hover {
-  opacity: 1;
-}
-
-/* Quick Chips & Grid Chips */
-#yt-year-filter-bar .yt-yf-QuickYears {
-  display: flex;
-  gap: 5px;
-  flex-wrap: wrap;
+  gap: 6px;
 }
 
 #yt-year-filter-bar .yt-yf-chip,
-#yt-year-filter-bar .yt-yf-grid-chip,
 #yt-year-sidebar-widget .yt-yf-sb-chip {
   background: rgba(128, 128, 128, 0.14);
   color: inherit;
@@ -120,13 +77,11 @@ html:not([dark]) #yt-year-filter-bar .yt-yf-brand {
 }
 
 #yt-year-filter-bar .yt-yf-chip:hover,
-#yt-year-filter-bar .yt-yf-grid-chip:hover,
 #yt-year-sidebar-widget .yt-yf-sb-chip:hover {
   background: rgba(128, 128, 128, 0.28);
 }
 
 #yt-year-filter-bar .yt-yf-chip.active,
-#yt-year-filter-bar .yt-yf-grid-chip.active,
 #yt-year-sidebar-widget .yt-yf-sb-chip.active {
   background: #cc0000;
   color: #ffffff;
@@ -134,26 +89,31 @@ html:not([dark]) #yt-year-filter-bar .yt-yf-brand {
   border-color: #ff1a1a;
 }
 
-/* Buttons */
-#yt-year-filter-bar .yt-yf-tray-btn {
-  display: inline-flex;
+/* Action Buttons */
+#yt-year-filter-bar .yt-yf-actions {
+  display: flex;
   align-items: center;
-  gap: 5px;
-  background: rgba(128, 128, 128, 0.16);
-  color: inherit;
-  border: 1px solid var(--yt-spec-10-percent-layer, rgba(255, 255, 255, 0.18));
-  border-radius: 8px;
-  padding: 5px 11px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s ease;
+  gap: 8px;
 }
 
-#yt-year-filter-bar .yt-yf-tray-btn:hover,
-#yt-year-filter-bar .yt-yf-tray-btn.open {
-  background: rgba(128, 128, 128, 0.28);
-  border-color: rgba(255, 255, 255, 0.35);
+#yt-year-filter-bar .yt-yf-apply,
+#yt-year-sidebar-widget .yt-yf-sb-apply {
+  display: inline-flex;
+  align-items: center;
+  background: #cc0000;
+  color: #ffffff;
+  border: none;
+  border-radius: 18px;
+  padding: 5px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+#yt-year-filter-bar .yt-yf-apply:hover,
+#yt-year-sidebar-widget .yt-yf-sb-apply:hover {
+  background: #ff0033;
 }
 
 #yt-year-filter-bar .yt-yf-clear,
@@ -164,8 +124,8 @@ html:not([dark]) #yt-year-filter-bar .yt-yf-brand {
   color: var(--yt-spec-text-secondary, #aaa);
   border: 1px solid var(--yt-spec-10-percent-layer, rgba(255, 255, 255, 0.2));
   border-radius: 18px;
-  padding: 4px 10px;
-  font-size: 11.5px;
+  padding: 5px 12px;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
 }
@@ -206,86 +166,6 @@ html:not([dark]) #yt-year-sidebar-widget .yt-yf-sb-reset {
   white-space: nowrap;
 }
 
-/* Expandable All-Years Tray */
-#yt-year-filter-bar .yt-yf-tray {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--yt-spec-10-percent-layer, rgba(255, 255, 255, 0.12));
-}
-
-html:not([dark]) #yt-year-filter-bar .yt-yf-tray {
-  border-top-color: #e2e2e2;
-}
-
-#yt-year-filter-bar .yt-yf-tray-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-#yt-year-filter-bar .yt-yf-range-picker {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-#yt-year-filter-bar .yt-yf-tray-label {
-  font-size: 11.5px;
-  font-weight: 600;
-  opacity: 0.75;
-}
-
-#yt-year-filter-bar .yt-yf-range-add {
-  background: rgba(128, 128, 128, 0.16);
-  color: inherit;
-  border: 1px solid var(--yt-spec-10-percent-layer, rgba(255, 255, 255, 0.16));
-  border-radius: 6px;
-  padding: 4px 9px;
-  font-size: 11.5px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-#yt-year-filter-bar .yt-yf-range-add:hover {
-  background: rgba(128, 128, 128, 0.3);
-}
-
-#yt-year-filter-bar select,
-#yt-year-sidebar-widget select {
-  background: var(--yt-spec-brand-background-primary, #121212);
-  color: var(--yt-spec-text-primary, #fff);
-  border: 1px solid var(--yt-spec-10-percent-layer, rgba(255, 255, 255, 0.2));
-  border-radius: 8px;
-  padding: 4px 8px;
-  font-size: 12px;
-  outline: none;
-  cursor: pointer;
-}
-
-html:not([dark]) #yt-year-filter-bar select,
-html:not([dark]) #yt-year-sidebar-widget select {
-  background: #ffffff;
-  color: #0f0f0f;
-  border-color: #ccc;
-}
-
-#yt-year-filter-bar .yt-yf-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
-  gap: 6px;
-}
-
-#yt-year-filter-bar .yt-yf-grid-chip {
-  text-align: center;
-  padding: 6px 0;
-}
-
 /* Video Sidebar Feed Top Widget (#yt-year-sidebar-widget) */
 #yt-year-sidebar-widget {
   display: flex;
@@ -310,7 +190,7 @@ html:not([dark]) #yt-year-sidebar-widget {
 #yt-year-sidebar-widget .yt-yf-sb-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 #yt-year-sidebar-widget .yt-yf-sb-title {
@@ -323,11 +203,21 @@ html:not([dark]) #yt-year-sidebar-widget {
 
 #yt-year-sidebar-widget .yt-yf-sb-badge {
   margin-left: auto;
-  font-size: 11.5px;
+  font-size: 11px;
   padding: 2px 8px;
   border-radius: 999px;
   background: rgba(128, 128, 128, 0.15);
   opacity: 0.9;
+}
+
+#yt-year-sidebar-widget .yt-yf-sb-apply {
+  padding: 3px 10px;
+  font-size: 11.5px;
+}
+
+#yt-year-sidebar-widget .yt-yf-sb-reset {
+  padding: 3px 8px;
+  font-size: 11.5px;
 }
 
 #yt-year-sidebar-widget .yt-yf-sb-chips {
@@ -339,11 +229,6 @@ html:not([dark]) #yt-year-sidebar-widget {
 
 #yt-year-sidebar-widget .yt-yf-sb-chip {
   padding: 4px 8px;
-  font-size: 11.5px;
-}
-
-#yt-year-sidebar-widget .yt-yf-sb-select {
-  padding: 3.5px 6px;
   font-size: 11.5px;
 }
 

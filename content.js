@@ -1,14 +1,13 @@
 (function () {
   const CURRENT_YEAR = new Date().getFullYear();
   const MIN_YEAR = 2005;
-  const QUICK_YEARS = [2007, 2009, 2011, 2012, 2013, 2014, 2015, 2016, 2018, 2020];
 
   let state = {
     enabled: false,
-    years: [], // Array of selected year strings, e.g. ["2012", "2014"]
+    years: [],      // Committed active years, e.g. ["2008", "2009"]
+    draftYears: [], // Currently highlighted years waiting for Apply
     strictFilter: true,
-    showSidebarWidget: true,
-    trayOpen: false
+    showSidebarWidget: true
   };
 
   let isUpdatingDOM = false;
@@ -71,7 +70,6 @@
       const minY = parseInt(afterMatch[1], 10) + 1;
       const maxY = parseInt(beforeMatch[1], 10) - 1;
 
-      // Preserve exact non-contiguous selection when min/max bounds match stored selection
       const normStored = normalizeYears(storedYears);
       if (normStored.length > 0) {
         const storedMin = parseInt(normStored[0], 10);
@@ -138,7 +136,7 @@
     }
   }
 
-  // Immediately save and apply the selected years
+  // Commit and apply the selected years when Apply is clicked
   function applyYearsToSearch(yearsInput, forceEnable = true) {
     const url = new URL(window.location.href);
     const currentQ = url.searchParams.get("search_query") || "";
@@ -146,6 +144,7 @@
 
     const normalized = normalizeYears(yearsInput);
     state.years = normalized;
+    state.draftYears = [...normalized];
     state.enabled = normalized.length > 0 && forceEnable;
 
     browser.storage.local.set({
@@ -173,30 +172,13 @@
     scheduleFilter(true);
   }
 
-  // Toggle a single year in the active selection and immediately apply
-  function toggleYearAndApply(yearStr) {
+  // Toggle a year in draftYears without reloading until Apply is clicked
+  function toggleDraftYear(yearStr) {
     const y = String(yearStr);
-    const nextYears = state.years.includes(y)
-      ? state.years.filter((item) => item !== y)
-      : normalizeYears([...state.years, y]);
-    applyYearsToSearch(nextYears, nextYears.length > 0);
-  }
-
-  // Toggle a span of years and immediately apply
-  function toggleRangeAndApply(startYear, endYear) {
-    const a = parseInt(startYear, 10);
-    const b = parseInt(endYear, 10);
-    if (isNaN(a) || isNaN(b)) return;
-    const min = Math.max(MIN_YEAR, Math.min(a, b));
-    const max = Math.min(CURRENT_YEAR, Math.max(a, b));
-    const range = [];
-    for (let y = min; y <= max; y++) range.push(String(y));
-
-    const allPresent = range.every((y) => state.years.includes(y));
-    const nextYears = allPresent
-      ? state.years.filter((y) => !range.includes(y))
-      : normalizeYears([...state.years, ...range]);
-    applyYearsToSearch(nextYears, nextYears.length > 0);
+    state.draftYears = state.draftYears.includes(y)
+      ? state.draftYears.filter((item) => item !== y)
+      : normalizeYears([...state.draftYears, y]);
+    updateAllUI();
   }
 
   // Intercept new searches when a year filter is active
@@ -371,7 +353,15 @@
     }
   }
 
-  // Inject the main filter bar on /results
+  function buildAllYearsButtonsHtml(className) {
+    let html = "";
+    for (let y = MIN_YEAR; y <= CURRENT_YEAR; y++) {
+      html += `<button type="button" class="${className}" data-year="${y}" title="Select ${y}">${y}</button>`;
+    }
+    return html;
+  }
+
+  // Inject the main filter bar on /results with all years 2005-2026 in one unified list
   function injectFilterBar() {
     if (window.location.pathname !== "/results") return;
     if (document.getElementById("yt-year-filter-bar")) {
@@ -387,39 +377,19 @@
       const bar = document.createElement("div");
       bar.id = "yt-year-filter-bar";
 
-      let allYearsChipsHtml = "";
-      let rangeOptionsHtml = "";
-      for (let y = CURRENT_YEAR; y >= MIN_YEAR; y--) {
-        allYearsChipsHtml += `<button type="button" class="yt-yf-grid-chip" data-year="${y}" title="Click to toggle ${y}">${y}</button>`;
-        rangeOptionsHtml += `<option value="${y}">${y}</option>`;
-      }
-
-      const quickChipsHtml = QUICK_YEARS.map(
-        (y) =>
-          `<button type="button" class="yt-yf-chip" data-year="${y}" title="Click to toggle ${y}">${y}</button>`
-      ).join("");
+      const allYearsHtml = buildAllYearsButtonsHtml("yt-yf-chip");
 
       bar.innerHTML = `
-        <div class="yt-yf-main-row">
+        <div class="yt-yf-top-row">
           <div class="yt-yf-brand">
             <span class="yt-yf-dot" id="yt-yf-dot"></span>
             <span>⏳ old-tube</span>
           </div>
 
-          <div class="yt-yf-active-tags" id="yt-yf-active-tags"></div>
-
-          <div class="yt-yf-QuickYears">
-            ${quickChipsHtml}
+          <div class="yt-yf-actions">
+            <button type="button" class="yt-yf-apply" id="yt-yf-apply-btn">Apply Year</button>
+            <button type="button" class="yt-yf-clear" id="yt-yf-clear-btn">Reset</button>
           </div>
-
-          <button type="button" class="yt-yf-tray-btn" id="yt-yf-tray-toggle" title="Pick from all years (2005 – Present)">
-            <span>📅 All Years</span>
-            <span class="yt-yf-chevron" id="yt-yf-chevron">▾</span>
-          </button>
-
-          <button type="button" class="yt-yf-clear" id="yt-yf-clear-btn" style="display: none;">
-            Reset
-          </button>
 
           <div class="yt-yf-right-controls">
             <label class="yt-yf-strict-label" title="Hide Shorts shelves and videos outside your selected years">
@@ -432,38 +402,19 @@
           </div>
         </div>
 
-        <div class="yt-yf-tray" id="yt-yf-tray" style="display: none;">
-          <div class="yt-yf-tray-header">
-            <span class="yt-yf-tray-label">Select any years (2005 – ${CURRENT_YEAR}):</span>
-            <div class="yt-yf-range-picker">
-              <span class="yt-yf-tray-label">Range:</span>
-              <select id="yt-yf-range-from">${rangeOptionsHtml}</select>
-              <span>–</span>
-              <select id="yt-yf-range-to">${rangeOptionsHtml}</select>
-              <button type="button" class="yt-yf-range-add" id="yt-yf-range-add-btn">+ Toggle Range</button>
-            </div>
-          </div>
-          <div class="yt-yf-grid">
-            ${allYearsChipsHtml}
-          </div>
+        <div class="yt-yf-all-years">
+          ${allYearsHtml}
         </div>
       `;
 
       targetContainer.prepend(bar);
 
-      const fromSelect = document.getElementById("yt-yf-range-from");
-      const toSelect = document.getElementById("yt-yf-range-to");
-      if (fromSelect && toSelect) {
-        fromSelect.value = "2010";
-        toSelect.value = "2014";
-      }
-
-      document.getElementById("yt-yf-tray-toggle").addEventListener("click", () => {
-        state.trayOpen = !state.trayOpen;
-        updateAllUI();
+      document.getElementById("yt-yf-apply-btn").addEventListener("click", () => {
+        applyYearsToSearch(state.draftYears, state.draftYears.length > 0);
       });
 
       document.getElementById("yt-yf-clear-btn").addEventListener("click", () => {
+        state.draftYears = [];
         applyYearsToSearch([], false);
       });
 
@@ -473,14 +424,9 @@
         scheduleFilter(true);
       });
 
-      document.getElementById("yt-yf-range-add-btn").addEventListener("click", () => {
-        toggleRangeAndApply(fromSelect.value, toSelect.value);
-      });
-
-      bar.querySelectorAll(".yt-yf-chip, .yt-yf-grid-chip").forEach((chip) => {
+      bar.querySelectorAll(".yt-yf-chip").forEach((chip) => {
         chip.addEventListener("click", () => {
-          const y = chip.getAttribute("data-year");
-          toggleYearAndApply(y);
+          toggleDraftYear(chip.getAttribute("data-year"));
         });
       });
 
@@ -515,15 +461,7 @@
       const widget = document.createElement("div");
       widget.id = "yt-year-sidebar-widget";
 
-      let yearSelectOptions = `<option value="">+ Year...</option>`;
-      for (let y = CURRENT_YEAR; y >= MIN_YEAR; y--) {
-        yearSelectOptions += `<option value="${y}">${y}</option>`;
-      }
-
-      const quickChipsHtml = QUICK_YEARS.map(
-        (y) =>
-          `<button type="button" class="yt-yf-sb-chip" data-year="${y}" title="Toggle ${y}">${y}</button>`
-      ).join("");
+      const allYearsHtml = buildAllYearsButtonsHtml("yt-yf-sb-chip");
 
       widget.innerHTML = `
         <div class="yt-yf-sb-header">
@@ -532,14 +470,11 @@
             <span>⏳ old-tube</span>
           </div>
           <span class="yt-yf-sb-badge" id="yt-yf-sidebar-status">Off</span>
-          <button type="button" class="yt-yf-sb-reset" id="yt-yf-sb-reset-btn" style="display: none;">Reset</button>
+          <button type="button" class="yt-yf-sb-apply" id="yt-yf-sb-apply-btn">Apply</button>
+          <button type="button" class="yt-yf-sb-reset" id="yt-yf-sb-reset-btn">Reset</button>
         </div>
-        <div class="yt-yf-sb-active-tags" id="yt-yf-sb-active-tags"></div>
         <div class="yt-yf-sb-chips">
-          ${quickChipsHtml}
-          <select id="yt-yf-sb-select" class="yt-yf-sb-select" title="Add or remove any year (2005 – Present)">
-            ${yearSelectOptions}
-          </select>
+          ${allYearsHtml}
         </div>
         <div class="yt-yf-sb-footer" id="yt-yf-sb-footer" style="display: none;">
           <button type="button" class="yt-yf-sb-search-btn" id="yt-yf-sb-search-btn">
@@ -552,22 +487,21 @@
 
       widget.querySelectorAll(".yt-yf-sb-chip").forEach((chip) => {
         chip.addEventListener("click", () => {
-          toggleYearAndApply(chip.getAttribute("data-year"));
+          toggleDraftYear(chip.getAttribute("data-year"));
         });
       });
 
-      const sbSelect = document.getElementById("yt-yf-sb-select");
-      if (sbSelect) {
-        sbSelect.addEventListener("change", () => {
-          const val = sbSelect.value;
-          sbSelect.value = "";
-          if (val) toggleYearAndApply(val);
+      const sbApply = document.getElementById("yt-yf-sb-apply-btn");
+      if (sbApply) {
+        sbApply.addEventListener("click", () => {
+          applyYearsToSearch(state.draftYears, state.draftYears.length > 0);
         });
       }
 
       const sbReset = document.getElementById("yt-yf-sb-reset-btn");
       if (sbReset) {
         sbReset.addEventListener("click", () => {
+          state.draftYears = [];
           applyYearsToSearch([], false);
         });
       }
@@ -575,14 +509,23 @@
       const sbSearchBtn = document.getElementById("yt-yf-sb-search-btn");
       if (sbSearchBtn) {
         sbSearchBtn.addEventListener("click", () => {
-          if (!state.years.length) return;
+          const targetYears = state.draftYears.length ? state.draftYears : state.years;
+          if (!targetYears.length) return;
+          state.years = normalizeYears(targetYears);
+          state.draftYears = [...state.years];
+          state.enabled = true;
+          browser.storage.local.set({
+            enabled: true,
+            years: state.years,
+            year: state.years[0] || ""
+          });
+
           const videoTitleEl = document.querySelector(
             "ytd-watch-metadata h1 yt-formatted-string, #above-the-fold #title h1, h1.title"
           );
           const rawTitle = videoTitleEl
             ? videoTitleEl.textContent.trim()
             : document.title.replace(/ - YouTube$/i, "").trim();
-          // Use first 6 words of current video title for a clean related search
           const cleanTopic = stripDateOperators(rawTitle)
             .replace(/[^\w\s]/g, " ")
             .split(/\s+/)
@@ -603,65 +546,36 @@
     }
   }
 
-  function renderRemovableTags(container) {
-    if (!container) return;
-    if (!state.enabled || !state.years.length) {
-      container.innerHTML = "";
-      return;
-    }
-
-    container.innerHTML = state.years
-      .map(
-        (y) =>
-          `<span class="yt-yf-tag committed" data-year="${y}" title="Click × to remove ${y}">${y} <button type="button" class="yt-yf-tag-remove" data-year="${y}">×</button></span>`
-      )
-      .join("");
-
-    container.querySelectorAll(".yt-yf-tag-remove").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const y = btn.getAttribute("data-year");
-        const nextYears = state.years.filter((item) => item !== y);
-        applyYearsToSearch(nextYears, nextYears.length > 0);
-      });
-    });
-  }
-
   function updateAllUI() {
     cleanSearchBarAndTitle();
 
     const isActive = state.enabled && state.years.length > 0;
+    const draftCount = state.draftYears.length;
 
     // 1. Update Search Results Bar (#yt-year-filter-bar)
     const bar = document.getElementById("yt-year-filter-bar");
     if (bar) {
       const dot = document.getElementById("yt-yf-dot");
-      const activeTagsContainer = document.getElementById("yt-yf-active-tags");
-      const clearBtn = document.getElementById("yt-yf-clear-btn");
+      const applyBtn = document.getElementById("yt-yf-apply-btn");
       const strictToggle = document.getElementById("yt-yf-strict-toggle");
-      const trayEl = document.getElementById("yt-yf-tray");
-      const trayBtn = document.getElementById("yt-yf-tray-toggle");
-      const chevron = document.getElementById("yt-yf-chevron");
-      const chips = bar.querySelectorAll(".yt-yf-chip, .yt-yf-grid-chip");
+      const chips = bar.querySelectorAll(".yt-yf-chip");
 
       if (dot) dot.classList.toggle("active", isActive);
       if (strictToggle && strictToggle.checked !== state.strictFilter) {
         strictToggle.checked = state.strictFilter;
       }
-      if (trayEl && trayBtn && chevron) {
-        trayEl.style.display = state.trayOpen ? "flex" : "none";
-        trayBtn.classList.toggle("open", state.trayOpen);
-        chevron.textContent = state.trayOpen ? "▴" : "▾";
+      if (applyBtn) {
+        applyBtn.textContent =
+          draftCount > 1
+            ? `Apply Years (${draftCount})`
+            : draftCount === 1
+            ? `Apply ${state.draftYears[0]}`
+            : "Apply Year";
       }
-      if (clearBtn) {
-        clearBtn.style.display = isActive ? "inline-flex" : "none";
-      }
-
-      renderRemovableTags(activeTagsContainer);
 
       chips.forEach((chip) => {
         const y = chip.getAttribute("data-year");
-        chip.classList.toggle("active", isActive && state.years.includes(y));
+        chip.classList.toggle("active", state.draftYears.includes(y));
       });
     }
 
@@ -669,24 +583,24 @@
     const widget = document.getElementById("yt-year-sidebar-widget");
     if (widget) {
       const sbDot = document.getElementById("yt-yf-sb-dot");
-      const sbReset = document.getElementById("yt-yf-sb-reset-btn");
-      const sbTags = document.getElementById("yt-yf-sb-active-tags");
+      const sbApply = document.getElementById("yt-yf-sb-apply-btn");
       const sbFooter = document.getElementById("yt-yf-sb-footer");
       const sbSearchBtn = document.getElementById("yt-yf-sb-search-btn");
       const sbChips = widget.querySelectorAll(".yt-yf-sb-chip");
 
       if (sbDot) sbDot.classList.toggle("active", isActive);
-      if (sbReset) sbReset.style.display = isActive ? "inline-flex" : "none";
-      if (sbFooter) sbFooter.style.display = isActive ? "block" : "none";
-      if (sbSearchBtn && isActive) {
-        sbSearchBtn.textContent = `🔍 Search related videos in ${formatYearsCompact(state.years)}`;
+      if (sbApply) {
+        sbApply.textContent = draftCount > 0 ? `Apply (${draftCount})` : "Apply";
       }
-
-      renderRemovableTags(sbTags);
+      const activeOrDraft = state.draftYears.length ? state.draftYears : state.years;
+      if (sbFooter) sbFooter.style.display = activeOrDraft.length > 0 ? "block" : "none";
+      if (sbSearchBtn && activeOrDraft.length > 0) {
+        sbSearchBtn.textContent = `🔍 Search related videos in ${formatYearsCompact(activeOrDraft)}`;
+      }
 
       sbChips.forEach((chip) => {
         const y = chip.getAttribute("data-year");
-        chip.classList.toggle("active", isActive && state.years.includes(y));
+        chip.classList.toggle("active", state.draftYears.includes(y));
       });
     }
   }
@@ -709,6 +623,7 @@
 
         if (urlYears && urlYears.length) {
           state.years = urlYears;
+          state.draftYears = [...urlYears];
           state.enabled = true;
           browser.storage.local.set({
             enabled: true,
@@ -718,6 +633,7 @@
         } else {
           state.enabled = Boolean(stored.enabled && storedYears.length);
           state.years = state.enabled ? storedYears : [];
+          state.draftYears = [...state.years];
         }
 
         cleanSearchBarAndTitle();
