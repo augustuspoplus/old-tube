@@ -1,5 +1,5 @@
 param(
-    [string]$CommitMessage = "Update YouTube Year Time Machine extension"
+    [string]$CommitMessage = "Update old-tube extension"
 )
 
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
@@ -11,15 +11,16 @@ Set-Location $ProjectDir
 git config user.name "augustuspoplus"
 git config user.email "49472861+augustuspoplus@users.noreply.github.com"
 
-Write-Host "1. Packaging extension into dist/youtube-year-time-machine.zip..." -ForegroundColor Cyan
+Write-Host "1. Packaging extension into dist/old-tube.zip..." -ForegroundColor Cyan
 New-Item -ItemType Directory -Path "$ProjectDir\dist" -Force | Out-Null
+Remove-Item "$ProjectDir\dist\youtube-year-time-machine.zip" -Force -ErrorAction SilentlyContinue
 Compress-Archive -Path `
     "$ProjectDir\manifest.json", `
     "$ProjectDir\content.js", `
     "$ProjectDir\styles.css", `
     "$ProjectDir\popup.html", `
     "$ProjectDir\popup.js" `
-    -DestinationPath "$ProjectDir\dist\youtube-year-time-machine.zip" -Force
+    -DestinationPath "$ProjectDir\dist\old-tube.zip" -Force
 
 Write-Host "2. Staging and committing changes..." -ForegroundColor Cyan
 git add -A
@@ -44,14 +45,14 @@ if ($LASTEXITCODE -ne 0) {
 gh auth setup-git
 
 Write-Host "4. Syncing with GitHub repository..." -ForegroundColor Cyan
-$repoCheck = gh repo view augustuspoplus/yt-year-filter 2>&1
+$repoCheck = gh repo view augustuspoplus/old-tube 2>&1
 if ($LASTEXITCODE -ne 0) {
     git remote remove origin 2>$null
-    Write-Host "   Creating fresh GitHub repository 'yt-year-filter' and pushing..." -ForegroundColor Green
-    gh repo create yt-year-filter --public --source=. --remote=origin --push
+    Write-Host "   Creating fresh GitHub repository 'old-tube' and pushing..." -ForegroundColor Green
+    gh repo create old-tube --public --source=. --remote=origin --push
 } else {
     Write-Host "   Pushing latest commits to origin/main..." -ForegroundColor Green
     git push -u origin main
 }
 
-Write-Host "`nDone! Your extension is packaged and live on GitHub." -ForegroundColor Green
+Write-Host "`nDone! Your old-tube extension is packaged and live on GitHub." -ForegroundColor Green

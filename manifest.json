@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
-  "name": "YouTube Year Time Machine",
+  "name": "old-tube",
   "version": "1.0.0",
-  "description": "Filter YouTube search results to only show videos from a specific year or custom date range.",
+  "description": "Filter YouTube search results and sidebar feeds to only show videos from specific years.",
   "permissions": [
     "*://*.youtube.com/*",
     "storage",
@@ -10,7 +10,7 @@
   ],
   "browser_action": {
     "default_popup": "popup.html",
-    "default_title": "YouTube Year Filter"
+    "default_title": "old-tube"
   },
   "content_scripts": [
     {

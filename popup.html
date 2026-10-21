@@ -4,13 +4,15 @@
   <meta charset="UTF-8" />
   <style>
     :root {
-      --bg: #121212;
-      --card: #1e1e1e;
+      --bg: #0f0f0f;
+      --surface: #181818;
+      --card: #222222;
+      --card-hover: #2c2c2c;
       --text: #f1f1f1;
-      --muted: #aaaaaa;
+      --muted: #9a9a9a;
       --accent: #ff0033;
-      --accent-hover: #cc0029;
-      --border: #333333;
+      --accent-hover: #e0002d;
+      --border: #2e2e2e;
     }
     * {
       box-sizing: border-box;
@@ -18,167 +20,312 @@
       padding: 0;
     }
     body {
-      width: 310px;
+      width: 345px;
       background: var(--bg);
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      padding: 16px;
+      padding: 14px;
+      user-select: none;
     }
     .header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
       padding-bottom: 10px;
       border-bottom: 1px solid var(--border);
     }
     .title {
-      font-size: 15px;
+      font-size: 14.5px;
       font-weight: 700;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 7px;
     }
     .badge {
       background: var(--accent);
       color: #fff;
       font-size: 11px;
-      padding: 2px 7px;
-      border-radius: 10px;
+      padding: 3px 9px;
+      border-radius: 999px;
       font-weight: 600;
+      letter-spacing: 0.2px;
     }
     .badge.off {
-      background: #333;
+      background: var(--card);
       color: var(--muted);
+      border: 1px solid var(--border);
     }
-    .control-group {
-      margin-bottom: 14px;
+
+    /* Active Selected Years Box */
+    .selected-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 9px 10px;
+      margin-bottom: 12px;
+      min-height: 44px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
     }
-    label {
-      display: block;
+    .selected-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .clear-inline {
+      background: none;
+      border: none;
+      color: #ff5566;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: none;
+    }
+    .clear-inline:hover {
+      text-decoration: underline;
+    }
+    .selected-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+    .empty-hint {
       font-size: 12px;
       color: var(--muted);
+      font-style: italic;
+    }
+    .year-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .year-pill:hover {
+      background: var(--accent-hover);
+    }
+    .year-pill span {
+      opacity: 0.85;
+      font-size: 12px;
+    }
+
+    /* Section Labels */
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
       margin-bottom: 6px;
-    }
-    .year-row {
       display: flex;
-      gap: 8px;
+      justify-content: space-between;
+      align-items: center;
     }
-    select {
+    .section-label small {
+      text-transform: none;
+      font-weight: 400;
+      letter-spacing: 0;
+    }
+
+    /* Multi-Year Grid */
+    .years-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 5px;
+      margin-bottom: 12px;
+      max-height: 168px;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+    .year-btn {
+      background: var(--card);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 7px 0;
+      border-radius: 7px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.12s;
+      text-align: center;
+    }
+    .year-btn:hover {
+      background: var(--card-hover);
+      border-color: #555;
+    }
+    .year-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      font-weight: 700;
+      box-shadow: 0 2px 8px rgba(255, 0, 51, 0.35);
+    }
+
+    /* Range Row */
+    .range-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 12px;
+      background: var(--surface);
+      padding: 7px 9px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .range-row span {
+      font-size: 11.5px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .range-row select {
       flex: 1;
       background: var(--card);
       color: var(--text);
       border: 1px solid var(--border);
-      padding: 8px 10px;
-      border-radius: 8px;
-      font-size: 14px;
+      padding: 5px 6px;
+      border-radius: 6px;
+      font-size: 12px;
       outline: none;
       cursor: pointer;
     }
-    .presets-label {
-      font-size: 12px;
-      color: var(--muted);
-      margin-bottom: 6px;
-    }
-    .presets {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 6px;
-      margin-bottom: 14px;
-    }
-    .preset-btn {
-      background: var(--card);
+    .range-add-btn {
+      background: var(--card-hover);
       color: var(--text);
-      border: 1px solid var(--border);
-      padding: 6px 0;
+      border: 1px solid #444;
       border-radius: 6px;
-      font-size: 12px;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    .preset-btn:hover {
-      border-color: var(--accent);
-    }
-    .preset-btn.active {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: #fff;
+      padding: 5px 9px;
+      font-size: 11.5px;
       font-weight: 600;
+      cursor: pointer;
     }
-    .checkbox-row {
+    .range-add-btn:hover {
+      border-color: var(--accent);
+    }
+
+    /* Settings Toggles */
+    .toggles-group {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      margin-bottom: 12px;
+    }
+    .toggle-row {
       display: flex;
       align-items: center;
-      gap: 8px;
-      font-size: 13px;
-      color: var(--text);
-      margin-bottom: 16px;
+      justify-content: space-between;
+      padding: 8px 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
       cursor: pointer;
     }
-    .checkbox-row input {
+    .toggle-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .toggle-title {
+      font-size: 12.5px;
+      font-weight: 600;
+    }
+    .toggle-sub {
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .toggle-row input {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent);
       cursor: pointer;
     }
+
+    /* Footer Buttons */
     .actions {
       display: flex;
       gap: 8px;
     }
     .btn {
       flex: 1;
-      padding: 9px;
+      padding: 9px 12px;
       border: none;
       border-radius: 8px;
       font-size: 13px;
       font-weight: 600;
       cursor: pointer;
-    }
-    .btn-primary {
-      background: var(--accent);
-      color: white;
-    }
-    .btn-primary:hover {
-      background: var(--accent-hover);
+      transition: all 0.15s;
     }
     .btn-secondary {
-      background: #2b2b2b;
+      background: var(--card);
       color: var(--text);
+      border: 1px solid var(--border);
     }
     .btn-secondary:hover {
-      background: #3a3a3a;
+      background: var(--card-hover);
     }
   </style>
 </head>
 <body>
   <div class="header">
-    <div class="title">⏳ YT Time Machine</div>
+    <div class="title">⏳ old-tube</div>
     <span id="status-badge" class="badge off">OFF</span>
   </div>
 
-  <div class="control-group">
-    <label for="year-select">Select Target Year (2005 – Present)</label>
-    <div class="year-row">
-      <select id="year-select"></select>
+  <div class="selected-box">
+    <div class="selected-header">
+      <span id="selected-count-label">Selected Years (0)</span>
+      <button type="button" id="clear-inline-btn" class="clear-inline">Clear all</button>
+    </div>
+    <div class="selected-pills" id="selected-pills">
+      <span class="empty-hint">Click any years below to auto-apply</span>
     </div>
   </div>
 
-  <div class="presets-label">Quick Nostalgia Years</div>
-  <div class="presets" id="presets-container">
-    <button class="preset-btn" data-year="2008">2008</button>
-    <button class="preset-btn" data-year="2010">2010</button>
-    <button class="preset-btn" data-year="2012">2012</button>
-    <button class="preset-btn" data-year="2013">2013</button>
-    <button class="preset-btn" data-year="2014">2014</button>
-    <button class="preset-btn" data-year="2015">2015</button>
-    <button class="preset-btn" data-year="2016">2016</button>
-    <button class="preset-btn" data-year="2018">2018</button>
+  <div class="section-label">
+    <span>Select Years (Auto-Applies)</span>
+    <small>Shift+Click for range</small>
+  </div>
+  <div class="years-grid" id="years-grid"></div>
+
+  <div class="range-row">
+    <span>Span:</span>
+    <select id="range-from"></select>
+    <span>to</span>
+    <select id="range-to"></select>
+    <button type="button" id="range-add-btn" class="range-add-btn">+ Toggle</button>
   </div>
 
-  <label class="checkbox-row">
-    <input type="checkbox" id="strict-checkbox" checked />
-    <span>Strict Filter (hide Shorts & stray videos)</span>
-  </label>
+  <div class="toggles-group">
+    <label class="toggle-row">
+      <div class="toggle-text">
+        <span class="toggle-title">Video Sidebar Feed Bar</span>
+        <span class="toggle-sub">Show quick year selector at top of video sidebar</span>
+      </div>
+      <input type="checkbox" id="sidebar-checkbox" checked />
+    </label>
+
+    <label class="toggle-row">
+      <div class="toggle-text">
+        <span class="toggle-title">Strict Filter Mode</span>
+        <span class="toggle-sub">Hide Shorts shelves & stray out-of-year videos</span>
+      </div>
+      <input type="checkbox" id="strict-checkbox" checked />
+    </label>
+  </div>
 
   <div class="actions">
-    <button id="apply-btn" class="btn btn-primary">Apply Year</button>
-    <button id="clear-btn" class="btn btn-secondary">Clear Filter</button>
+    <button type="button" id="clear-btn" class="btn btn-secondary">Reset All Years</button>
   </div>
 
   <script src="popup.js"></script>
