@@ -1,0 +1,38 @@
+name: Build & Publish Firefox Add-on
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "manifest.json"
+      - "content.js"
+      - "styles.css"
+      - "popup.html"
+      - "popup.js"
+      - "icons/**"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Publish to Firefox Add-ons (AMO) if API keys are configured
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          if [ -n "$WEB_EXT_API_KEY" ] && [ -n "$WEB_EXT_API_SECRET" ]; then
+            npx --yes web-ext sign \
+              --channel=listed \
+              --ignore-files="assets/**" "dist/**" "*.ps1" "*.bat" "README.md" "LICENSE" ".github/**" \
+              || true
+          else
+            echo "AMO_JWT_ISSUER / AMO_JWT_SECRET not configured yet; skipping AMO auto-upload."
+          fi

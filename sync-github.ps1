@@ -1,5 +1,6 @@
 param(
-    [string]$CommitMessage = "Update old-tube extension"
+    [string]$CommitMessage = "Update old-tube extension",
+    [switch]$BumpVersion
 )
 
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
@@ -11,39 +12,15 @@ Set-Location $ProjectDir
 git config user.name "augustuspoplus"
 git config user.email "49472861+augustuspoplus@users.noreply.github.com"
 
-Write-Host "1. Packaging Firefox Store (AMO) ready archive into dist/old-tube.zip..." -ForegroundColor Cyan
-New-Item -ItemType Directory -Path "$ProjectDir\dist" -Force | Out-Null
-$ZipPath = "$ProjectDir\dist\old-tube.zip"
-Remove-Item $ZipPath -Force -ErrorAction SilentlyContinue
-
-Add-Type -AssemblyName System.IO.Compression
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-
-$zipStream = [System.IO.File]::Open($ZipPath, [System.IO.FileMode]::Create)
-$archive = New-Object System.IO.Compression.ZipArchive($zipStream, [System.IO.Compression.ZipArchiveMode]::Create)
-
-$filesToPackage = @(
-    "manifest.json",
-    "content.js",
-    "styles.css",
-    "popup.html",
-    "popup.js",
-    "icons/icon-16.png",
-    "icons/icon-48.png",
-    "icons/icon-128.png",
-    "icons/logo.svg"
-)
-
-foreach ($relPath in $filesToPackage) {
-    $fullPath = Join-Path $ProjectDir ($relPath -replace '/', '\')
-    if (Test-Path $fullPath) {
-        # Ensure forward slashes inside zip for Mozilla AMO compatibility
-        [void][System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $fullPath, $relPath)
-    }
+# Auto-bump patch version if any extension source files changed
+$extDiff = git status --porcelain content.js styles.css popup.html popup.js icons/
+if ($BumpVersion -or $extDiff) {
+    Write-Host "1. Bumping version & packaging dist/old-tube.zip..." -ForegroundColor Cyan
+    & "$ProjectDir\package.ps1" -BumpPatch
+} else {
+    Write-Host "1. Packaging Firefox Store (AMO) ready archive into dist/old-tube.zip..." -ForegroundColor Cyan
+    & "$ProjectDir\package.ps1"
 }
-
-$archive.Dispose()
-$zipStream.Dispose()
 
 Write-Host "2. Staging and committing changes..." -ForegroundColor Cyan
 git add -A
