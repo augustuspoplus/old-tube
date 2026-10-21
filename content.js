@@ -5,13 +5,15 @@
   let state = {
     enabled: false,
     years: [],      // Committed active years, e.g. ["2008", "2009"]
-    draftYears: [], // Currently highlighted years waiting for Apply
+    draftYears: [], // Highlighted years waiting for Apply
     strictFilter: true,
     showSidebarWidget: true
   };
 
   let isUpdatingDOM = false;
   let filterTimeout = null;
+  let lastSidebarFetchKey = "";
+  let isFetchingSidebar = false;
 
   function normalizeYears(yearsInput) {
     if (!yearsInput) return [];
@@ -168,8 +170,12 @@
       return;
     }
 
+    lastSidebarFetchKey = "";
     updateAllUI();
     scheduleFilter(true);
+    if (window.location.pathname === "/watch") {
+      loadSidebarYearFeed(true);
+    }
   }
 
   // Toggle a year in draftYears without reloading until Apply is clicked
@@ -269,20 +275,14 @@
 
   function runStrictDOMFilter() {
     if (isUpdatingDOM) return;
-    const isResults = window.location.pathname === "/results";
-    const isWatch = window.location.pathname === "/watch";
-    if (!isResults && !isWatch) return;
+    if (window.location.pathname !== "/results") return;
 
     isUpdatingDOM = true;
 
     try {
       cleanSearchBarAndTitle();
 
-      const itemSelectors = isResults
-        ? "ytd-video-renderer"
-        : "#secondary ytd-compact-video-renderer, #secondary yt-lockup-view-model, #related ytd-compact-video-renderer, #related yt-lockup-view-model";
-
-      const videoRenderers = document.querySelectorAll(itemSelectors);
+      const videoRenderers = document.querySelectorAll("ytd-video-renderer");
       const shelves = document.querySelectorAll(
         "ytd-reel-shelf-renderer, ytd-shelf-renderer, ytd-horizontal-card-list-renderer"
       );
@@ -303,13 +303,9 @@
       let shownCount = 0;
 
       videoRenderers.forEach((el) => {
-        const metaBlock = el.querySelector(
-          "#metadata-line, .yt-content-metadata-view-model, #metadata"
-        );
-        const titleEl = el.querySelector(
-          "#video-title, .yt-lockup-metadata-view-model__title, h3"
-        );
-        const metaText = metaBlock ? metaBlock.textContent : el.textContent || "";
+        const metaBlock = el.querySelector("#metadata-line");
+        const titleEl = el.querySelector("#video-title");
+        const metaText = metaBlock ? metaBlock.textContent : "";
         const titleText = titleEl ? titleEl.textContent : "";
 
         if (!metaText) return;
@@ -340,17 +336,6 @@
     if (statusEl && statusEl.textContent !== nextText) {
       statusEl.textContent = nextText;
     }
-
-    const sidebarStatusEl = document.getElementById("yt-yf-sidebar-status");
-    if (sidebarStatusEl) {
-      const sbText =
-        !state.enabled || !state.years.length
-          ? "Off"
-          : `${yearsText}${hiddenCount > 0 ? ` · ${shownCount} matched` : ""}`;
-      if (sidebarStatusEl.textContent !== sbText) {
-        sidebarStatusEl.textContent = sbText;
-      }
-    }
   }
 
   function buildAllYearsButtonsHtml(className) {
@@ -359,6 +344,234 @@
       html += `<button type="button" class="${className}" data-year="${y}" title="Select ${y}">${y}</button>`;
     }
     return html;
+  }
+
+  // Extract current watch page video title/keywords for the sidebar year feed
+  function getCurrentWatchKeywords() {
+    const titleEl = document.querySelector(
+      "ytd-watch-metadata h1 yt-formatted-string, #above-the-fold #title h1, h1.title"
+    );
+    const rawTitle = titleEl
+      ? titleEl.textContent.trim()
+      : document.title
+          .replace(/^\(\d+\)\s*/, "")
+          .replace(/\s*-\s*YouTube$/i, "")
+          .trim();
+
+    const stopWords = new Set([
+      "the", "and", "for", "with", "from", "that", "this", "what", "when", "where",
+      "who", "why", "how", "official", "video", "music", "audio", "full", "episode",
+      "part", "hq", "hd", "4k", "1080p", "720p", "lyrics", "reupload"
+    ]);
+
+    const words = stripDateOperators(rawTitle)
+      .replace(/\[[^\]]*\]|\([^)]*\)/g, " ")
+      .replace(/[^\w\s]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length > 1 && !stopWords.has(w.toLowerCase()));
+
+    if (words.length >= 2) {
+      return words.slice(0, 5).join(" ");
+    }
+
+    const fallback = stripDateOperators(rawTitle)
+      .replace(/[^\w\s]/g, " ")
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 5)
+      .join(" ");
+    return fallback || "youtube";
+  }
+
+  function collectVideoRenderers(node, list = []) {
+    if (!node || typeof node !== "object") return list;
+    if (node.videoRenderer && node.videoRenderer.videoId) {
+      list.push(node.videoRenderer);
+      return list;
+    }
+    if (Array.isArray(node)) {
+      for (const item of node) collectVideoRenderers(item, list);
+    } else {
+      for (const key of Object.keys(node)) {
+        collectVideoRenderers(node[key], list);
+      }
+    }
+    return list;
+  }
+
+  function extractText(field) {
+    if (!field) return "";
+    if (typeof field.simpleText === "string") return field.simpleText;
+    if (Array.isArray(field.runs)) return field.runs.map((r) => r.text).join("");
+    return "";
+  }
+
+  function escapeHtml(str) {
+    return String(str || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  async function fetchYearVideosForTopic(topic, years) {
+    const query = buildYearQuery(topic, years);
+    const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}&hl=en`;
+    const resp = await fetch(url, { credentials: "same-origin" });
+    const html = await resp.text();
+
+    const match =
+      html.match(/var\s+ytInitialData\s*=\s*(\{[\s\S]*?\});\s*<\/script>/) ||
+      html.match(/window\["ytInitialData"\]\s*=\s*(\{[\s\S]*?\});/);
+
+    if (!match) return [];
+
+    const data = JSON.parse(match[1]);
+    const rawRenderers = collectVideoRenderers(data);
+    const currentVideoId = new URL(window.location.href).searchParams.get("v");
+
+    const results = [];
+    const seen = new Set();
+
+    for (const v of rawRenderers) {
+      const videoId = v.videoId;
+      if (!videoId || videoId === currentVideoId || seen.has(videoId)) continue;
+
+      const title = extractText(v.title);
+      const channel =
+        extractText(v.longBylineText) ||
+        extractText(v.shortBylineText) ||
+        extractText(v.ownerText);
+      const published = extractText(v.publishedTimeText);
+      const views =
+        extractText(v.shortViewCountText) || extractText(v.viewCountText);
+      const duration = extractText(v.lengthText);
+
+      if (!title) continue;
+      if (state.strictFilter && published && !matchesTargetYears(published, title, years)) {
+        continue;
+      }
+
+      seen.add(videoId);
+      results.push({
+        videoId,
+        title,
+        channel,
+        published,
+        views,
+        duration,
+        thumbnail: `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`
+      });
+
+      if (results.length >= 18) break;
+    }
+
+    return results;
+  }
+
+  // Toggle visibility of YouTube's default watch sidebar feed when our year sidebar feed is active
+  function setNativeSidebarHidden(hide) {
+    const nativeRelated = document.querySelectorAll(
+      "ytd-watch-flexy #related, ytd-watch-flexy ytd-watch-next-secondary-results-renderer"
+    );
+    nativeRelated.forEach((el) => {
+      // Never hide our own widget if it was placed inside #related
+      if (el.querySelector && el.querySelector("#yt-year-sidebar-widget")) return;
+      el.classList.toggle("yt-yf-hidden-by-year", hide);
+    });
+  }
+
+  async function loadSidebarYearFeed(force = false) {
+    if (window.location.pathname !== "/watch" || !state.showSidebarWidget) {
+      setNativeSidebarHidden(false);
+      return;
+    }
+
+    const feedContainer = document.getElementById("yt-yf-sidebar-feed");
+    const statusBadge = document.getElementById("yt-yf-sidebar-status");
+    const topicInput = document.getElementById("yt-yf-sb-topic-input");
+    if (!feedContainer) return;
+
+    if (!state.enabled || !state.years.length) {
+      feedContainer.style.display = "none";
+      feedContainer.innerHTML = "";
+      lastSidebarFetchKey = "";
+      setNativeSidebarHidden(false);
+      if (statusBadge) statusBadge.textContent = "Off";
+      return;
+    }
+
+    const currentVid = new URL(window.location.href).searchParams.get("v") || "";
+    const customTopic =
+      topicInput && topicInput.dataset.vid === currentVid && topicInput.value.trim()
+        ? topicInput.value.trim()
+        : "";
+    const topic = customTopic || getCurrentWatchKeywords();
+
+    if (topicInput && (!topicInput.value.trim() || topicInput.dataset.vid !== currentVid)) {
+      topicInput.value = topic;
+      topicInput.dataset.vid = currentVid;
+    }
+
+    const fetchKey = `${currentVid}|${topic}|${state.years.join(",")}|${state.strictFilter}`;
+    if (!force && fetchKey === lastSidebarFetchKey) return;
+    if (isFetchingSidebar) return;
+
+    lastSidebarFetchKey = fetchKey;
+    isFetchingSidebar = true;
+
+    const yearsLabel = formatYearsCompact(state.years);
+    if (statusBadge) statusBadge.textContent = `Loading ${yearsLabel}...`;
+    feedContainer.style.display = "flex";
+    feedContainer.innerHTML = `<div class="yt-yf-sb-loading">⏳ Loading ${escapeHtml(yearsLabel)} sidebar feed for "<strong>${escapeHtml(topic)}</strong>"...</div>`;
+    setNativeSidebarHidden(true);
+
+    try {
+      let videos = await fetchYearVideosForTopic(topic, state.years);
+
+      // If narrow topic returned too few results, broaden to first 2 words
+      if (videos.length < 3 && topic.split(/\s+/).length > 2) {
+        const broader = topic.split(/\s+/).slice(0, 2).join(" ");
+        const more = await fetchYearVideosForTopic(broader, state.years);
+        const existingIds = new Set(videos.map((v) => v.videoId));
+        for (const m of more) {
+          if (!existingIds.has(m.videoId)) videos.push(m);
+        }
+      }
+
+      if (!videos.length) {
+        feedContainer.innerHTML = `<div class="yt-yf-sb-loading">No videos found from ${escapeHtml(yearsLabel)} for "${escapeHtml(topic)}". Try editing the sidebar topic above.</div>`;
+        if (statusBadge) statusBadge.textContent = `${yearsLabel} · 0 videos`;
+        return;
+      }
+
+      if (statusBadge) statusBadge.textContent = `${yearsLabel} · ${videos.length} videos`;
+
+      feedContainer.innerHTML = videos
+        .map(
+          (v) => `
+          <a class="yt-yf-sb-video-card" href="/watch?v=${encodeURIComponent(v.videoId)}">
+            <div class="yt-yf-sb-thumb-wrap">
+              <img class="yt-yf-sb-thumb" src="${escapeHtml(v.thumbnail)}" alt="" loading="lazy" />
+              ${v.duration ? `<span class="yt-yf-sb-duration">${escapeHtml(v.duration)}</span>` : ""}
+            </div>
+            <div class="yt-yf-sb-meta">
+              <div class="yt-yf-sb-vtitle" title="${escapeHtml(v.title)}">${escapeHtml(v.title)}</div>
+              <div class="yt-yf-sb-vchannel">${escapeHtml(v.channel)}</div>
+              <div class="yt-yf-sb-vstats">
+                ${escapeHtml([v.views, v.published].filter(Boolean).join(" • "))}
+              </div>
+            </div>
+          </a>
+        `
+        )
+        .join("");
+    } catch (err) {
+      feedContainer.innerHTML = `<div class="yt-yf-sb-loading">Could not load sidebar feed.</div>`;
+      setNativeSidebarHidden(false);
+    } finally {
+      isFetchingSidebar = false;
+    }
   }
 
   // Inject the main filter bar on /results with all years 2005-2026 in one unified list
@@ -436,11 +649,12 @@
     }
   }
 
-  // Inject the compact widget at the top of the video sidebar feed (#secondary / #related)
+  // Inject the sidebar widget + year video feed at the top of #secondary-inner / #secondary
   function injectSidebarWidget() {
     const existing = document.getElementById("yt-year-sidebar-widget");
     if (!state.showSidebarWidget || window.location.pathname !== "/watch") {
       if (existing) existing.remove();
+      setNativeSidebarHidden(false);
       return;
     }
 
@@ -451,8 +665,7 @@
 
     const sidebarTarget =
       document.querySelector("ytd-watch-flexy #secondary-inner") ||
-      document.querySelector("ytd-watch-flexy #secondary") ||
-      document.querySelector("#related");
+      document.querySelector("ytd-watch-flexy #secondary");
 
     if (!sidebarTarget) return;
 
@@ -467,7 +680,7 @@
         <div class="yt-yf-sb-header">
           <div class="yt-yf-sb-title">
             <span class="yt-yf-dot" id="yt-yf-sb-dot"></span>
-            <span>⏳ old-tube</span>
+            <span>⏳ old-tube Sidebar</span>
           </div>
           <span class="yt-yf-sb-badge" id="yt-yf-sidebar-status">Off</span>
           <button type="button" class="yt-yf-sb-apply" id="yt-yf-sb-apply-btn">Apply</button>
@@ -476,11 +689,11 @@
         <div class="yt-yf-sb-chips">
           ${allYearsHtml}
         </div>
-        <div class="yt-yf-sb-footer" id="yt-yf-sb-footer" style="display: none;">
-          <button type="button" class="yt-yf-sb-search-btn" id="yt-yf-sb-search-btn">
-            🔍 Search this video's topic in selected years
-          </button>
+        <div class="yt-yf-sb-topic-row" id="yt-yf-sb-topic-row" style="display: none;">
+          <input type="text" id="yt-yf-sb-topic-input" class="yt-yf-sb-topic-input" placeholder="Sidebar topic..." title="Topic used to populate sidebar videos for your selected year(s)" />
+          <button type="button" id="yt-yf-sb-topic-btn" class="yt-yf-sb-topic-btn">Refresh</button>
         </div>
+        <div class="yt-yf-sidebar-feed" id="yt-yf-sidebar-feed" style="display: none;"></div>
       `;
 
       sidebarTarget.prepend(widget);
@@ -506,41 +719,27 @@
         });
       }
 
-      const sbSearchBtn = document.getElementById("yt-yf-sb-search-btn");
-      if (sbSearchBtn) {
-        sbSearchBtn.addEventListener("click", () => {
-          const targetYears = state.draftYears.length ? state.draftYears : state.years;
-          if (!targetYears.length) return;
-          state.years = normalizeYears(targetYears);
-          state.draftYears = [...state.years];
-          state.enabled = true;
-          browser.storage.local.set({
-            enabled: true,
-            years: state.years,
-            year: state.years[0] || ""
-          });
-
-          const videoTitleEl = document.querySelector(
-            "ytd-watch-metadata h1 yt-formatted-string, #above-the-fold #title h1, h1.title"
-          );
-          const rawTitle = videoTitleEl
-            ? videoTitleEl.textContent.trim()
-            : document.title.replace(/ - YouTube$/i, "").trim();
-          const cleanTopic = stripDateOperators(rawTitle)
-            .replace(/[^\w\s]/g, " ")
-            .split(/\s+/)
-            .filter(Boolean)
-            .slice(0, 6)
-            .join(" ");
-          if (!cleanTopic) return;
-          const searchUrl = new URL("https://www.youtube.com/results");
-          searchUrl.searchParams.set("search_query", buildYearQuery(cleanTopic, state.years));
-          searchUrl.searchParams.set("yt_year", state.years.join(","));
-          window.location.href = searchUrl.toString();
+      const topicInput = document.getElementById("yt-yf-sb-topic-input");
+      const topicBtn = document.getElementById("yt-yf-sb-topic-btn");
+      if (topicBtn) {
+        topicBtn.addEventListener("click", () => {
+          loadSidebarYearFeed(true);
+        });
+      }
+      if (topicInput) {
+        topicInput.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            e.stopPropagation();
+            loadSidebarYearFeed(true);
+          }
         });
       }
 
       updateAllUI();
+      if (state.enabled && state.years.length) {
+        setTimeout(() => loadSidebarYearFeed(true), 300);
+      }
     } finally {
       isUpdatingDOM = false;
     }
@@ -584,18 +783,20 @@
     if (widget) {
       const sbDot = document.getElementById("yt-yf-sb-dot");
       const sbApply = document.getElementById("yt-yf-sb-apply-btn");
-      const sbFooter = document.getElementById("yt-yf-sb-footer");
-      const sbSearchBtn = document.getElementById("yt-yf-sb-search-btn");
+      const sbTopicRow = document.getElementById("yt-yf-sb-topic-row");
       const sbChips = widget.querySelectorAll(".yt-yf-sb-chip");
 
       if (sbDot) sbDot.classList.toggle("active", isActive);
       if (sbApply) {
-        sbApply.textContent = draftCount > 0 ? `Apply (${draftCount})` : "Apply";
+        sbApply.textContent =
+          draftCount > 1
+            ? `Apply (${draftCount})`
+            : draftCount === 1
+            ? `Apply ${state.draftYears[0]}`
+            : "Apply";
       }
-      const activeOrDraft = state.draftYears.length ? state.draftYears : state.years;
-      if (sbFooter) sbFooter.style.display = activeOrDraft.length > 0 ? "block" : "none";
-      if (sbSearchBtn && activeOrDraft.length > 0) {
-        sbSearchBtn.textContent = `🔍 Search related videos in ${formatYearsCompact(activeOrDraft)}`;
+      if (sbTopicRow) {
+        sbTopicRow.style.display = isActive ? "flex" : "none";
       }
 
       sbChips.forEach((chip) => {
@@ -640,6 +841,9 @@
         injectFilterBar();
         injectSidebarWidget();
         scheduleFilter(true);
+        if (window.location.pathname === "/watch") {
+          setTimeout(() => loadSidebarYearFeed(false), 350);
+        }
       });
   }
 
@@ -655,7 +859,8 @@
 
   window.addEventListener("yt-navigate-finish", () => {
     cleanSearchBarAndTitle();
-    setTimeout(syncStateAndRun, 150);
+    lastSidebarFetchKey = "";
+    setTimeout(syncStateAndRun, 250);
   });
 
   setInterval(() => {
@@ -669,11 +874,11 @@
       }
     } else if (window.location.pathname === "/watch") {
       injectSidebarWidget();
-      if (state.enabled && state.years.length && state.strictFilter) {
-        runStrictDOMFilter();
+      if (state.enabled && state.years.length) {
+        loadSidebarYearFeed(false);
       }
     }
-  }, 800);
+  }, 900);
 
   setupSearchInterceptors();
   syncStateAndRun();
