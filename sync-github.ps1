@@ -19,7 +19,8 @@ Compress-Archive -Path `
     "$ProjectDir\content.js", `
     "$ProjectDir\styles.css", `
     "$ProjectDir\popup.html", `
-    "$ProjectDir\popup.js" `
+    "$ProjectDir\popup.js", `
+    "$ProjectDir\icons" `
     -DestinationPath "$ProjectDir\dist\old-tube.zip" -Force
 
 Write-Host "2. Staging and committing changes..." -ForegroundColor Cyan
