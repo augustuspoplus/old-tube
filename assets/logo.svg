@@ -9,38 +9,96 @@
       <stop offset="100%" stop-color="#ffffff" stop-opacity="0.04" />
     </linearGradient>
     <clipPath id="tvClip">
-      <path d="M 87,90 C 166,78 346,78 425,90 C 468,94 474,129 476,159 C 484,206 484,306 476,353 C 474,383 468,418 425,422 C 346,434 166,434 87,422 C 44,418 38,383 36,353 C 28,306 28,206 36,159 C 38,129 44,94 87,90 Z" />
+      <path d="M 87,62 C 166,50 346,50 425,62 C 468,66 474,101 476,131 C 484,176 484,276 476,321 C 474,351 468,386 425,390 C 346,402 166,402 87,390 C 44,386 38,351 36,321 C 28,276 28,176 36,131 C 38,101 44,66 87,62 Z" />
     </clipPath>
   </defs>
 
-  <!-- Drop Shadow -->
-  <path d="M 87,100 C 166,88 346,88 425,100 C 468,104 474,139 476,169 C 484,216 484,316 476,363 C 474,393 468,428 425,432 C 346,444 166,444 87,432 C 44,428 38,393 36,363 C 28,316 28,216 36,169 C 38,139 44,104 87,100 Z" fill="#000000" fill-opacity="0.31" />
+  <!-- TV Drop Shadow -->
+  <path d="M 87,72 C 166,60 346,60 425,72 C 468,76 474,111 476,141 C 484,186 484,286 476,331 C 474,361 468,396 425,400 C 346,412 166,412 87,400 C 44,396 38,361 36,331 C 28,286 28,186 36,141 C 38,111 44,76 87,72 Z" fill="#000000" fill-opacity="0.30" />
 
   <!-- Main Classic YouTube Red Body -->
-  <path d="M 87,90 C 166,78 346,78 425,90 C 468,94 474,129 476,159 C 484,206 484,306 476,353 C 474,383 468,418 425,422 C 346,434 166,434 87,422 C 44,418 38,383 36,353 C 28,306 28,206 36,159 C 38,129 44,94 87,90 Z" fill="url(#ytRed)" stroke="#ffbe9e" stroke-opacity="0.22" stroke-width="2.5" />
+  <path d="M 87,62 C 166,50 346,50 425,62 C 468,66 474,101 476,131 C 484,176 484,276 476,321 C 474,351 468,386 425,390 C 346,402 166,402 87,390 C 44,386 38,351 36,321 C 28,276 28,176 36,131 C 38,101 44,66 87,62 Z" fill="url(#ytRed)" stroke="#ffbe9e" stroke-opacity="0.22" stroke-width="2.5" />
 
   <!-- Diagonal Gloss Sheen -->
   <g clip-path="url(#tvClip)">
-    <polygon points="0,0 440,0 240,440 0,440" fill="url(#ytGloss)" />
+    <polygon points="0,0 440,0 240,420 0,420" fill="url(#ytGloss)" />
   </g>
 
-  <!-- Recessed Pixel Shadows -->
-  <g fill="#550000" fill-opacity="0.43">
-    <rect x="148" y="150" width="52" height="52" />
-    <rect x="312" y="150" width="52" height="52" />
-    <rect x="184" y="280" width="144" height="38" />
-    <rect x="146" y="318" width="38" height="38" />
-    <rect x="328" y="318" width="38" height="38" />
+  <!-- Beard Drop Shadow & Recessed Top Shadows -->
+  <g fill="#000000" fill-opacity="0.30">
+    <rect x="64"  y="226" width="32" height="128" />
+    <rect x="416" y="226" width="32" height="128" />
+    <rect x="96"  y="290" width="32" height="112" />
+    <rect x="384" y="290" width="32" height="112" />
+    <rect x="128" y="322" width="32" height="104" />
+    <rect x="352" y="322" width="32" height="104" />
+    <rect x="160" y="322" width="32" height="128" />
+    <rect x="320" y="322" width="32" height="128" />
+    <rect x="192" y="306" width="32" height="164" />
+    <rect x="288" y="306" width="32" height="164" />
+    <rect x="224" y="306" width="64" height="188" />
+  </g>
+  <g fill="#550000" fill-opacity="0.45">
+    <rect x="64"  y="212" width="32" height="12" />
+    <rect x="416" y="212" width="32" height="12" />
+    <rect x="96"  y="276" width="32" height="12" />
+    <rect x="384" y="276" width="32" height="12" />
+    <rect x="128" y="308" width="32" height="12" />
+    <rect x="352" y="308" width="32" height="12" />
+    <rect x="160" y="308" width="32" height="12" />
+    <rect x="320" y="308" width="32" height="12" />
+    <rect x="192" y="292" width="32" height="12" />
+    <rect x="288" y="292" width="32" height="12" />
+    <rect x="224" y="292" width="64" height="12" />
+  </g>
+
+  <!-- Main Pixel Beard Blocks -->
+  <g fill="#eef0f2">
+    <rect x="64"  y="218" width="32" height="128" />
+    <rect x="416" y="218" width="32" height="128" />
+    <rect x="96"  y="282" width="32" height="112" />
+    <rect x="384" y="282" width="32" height="112" />
+    <rect x="128" y="314" width="32" height="104" />
+    <rect x="352" y="314" width="32" height="104" />
+    <rect x="160" y="314" width="32" height="128" />
+    <rect x="320" y="314" width="32" height="128" />
+    <rect x="192" y="298" width="32" height="164" />
+    <rect x="288" y="298" width="32" height="164" />
+    <rect x="224" y="298" width="64" height="188" />
+  </g>
+
+  <!-- Beard Bottom Shading -->
+  <g fill="#c6ccd2">
+    <rect x="64"  y="318" width="32" height="28" />
+    <rect x="416" y="318" width="32" height="28" />
+    <rect x="96"  y="366" width="32" height="28" />
+    <rect x="384" y="366" width="32" height="28" />
+    <rect x="128" y="390" width="32" height="28" />
+    <rect x="352" y="390" width="32" height="28" />
+    <rect x="160" y="414" width="32" height="28" />
+    <rect x="320" y="414" width="32" height="28" />
+    <rect x="192" y="434" width="32" height="28" />
+    <rect x="288" y="434" width="32" height="28" />
+    <rect x="224" y="458" width="64" height="28" />
+  </g>
+
+  <!-- Recessed Pixel Shadows for Eyes & Sad Mouth -->
+  <g fill="#550000" fill-opacity="0.45">
+    <rect x="148" y="108" width="52" height="52" />
+    <rect x="312" y="108" width="52" height="52" />
+    <rect x="184" y="208" width="144" height="36" />
+    <rect x="148" y="244" width="36" height="36" />
+    <rect x="328" y="244" width="36" height="36" />
   </g>
 
   <!-- White Pixel Sad Face :( -->
   <g fill="#f6f6f6">
     <!-- Eyes -->
-    <rect x="148" y="156" width="52" height="52" />
-    <rect x="312" y="156" width="52" height="52" />
+    <rect x="148" y="114" width="52" height="52" />
+    <rect x="312" y="114" width="52" height="52" />
     <!-- Stepped Frown -->
-    <rect x="184" y="286" width="144" height="38" />
-    <rect x="146" y="324" width="38" height="38" />
-    <rect x="328" y="324" width="38" height="38" />
+    <rect x="184" y="214" width="144" height="36" />
+    <rect x="148" y="250" width="36" height="36" />
+    <rect x="328" y="250" width="36" height="36" />
   </g>
 </svg>
