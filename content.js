@@ -338,12 +338,19 @@
     }
   }
 
-  function buildAllYearsButtonsHtml(className) {
-    let html = "";
+  function appendAllYearButtons(container, className) {
     for (let y = MIN_YEAR; y <= CURRENT_YEAR; y++) {
-      html += `<button type="button" class="${className}" data-year="${y}" title="Select ${y}">${y}</button>`;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = className;
+      btn.setAttribute("data-year", String(y));
+      btn.title = `Select ${y}`;
+      btn.textContent = String(y);
+      btn.addEventListener("click", () => {
+        toggleDraftYear(String(y));
+      });
+      container.appendChild(btn);
     }
-    return html;
   }
 
   // Extract current watch page video title/keywords for the sidebar year feed
@@ -404,14 +411,6 @@
     if (typeof field.simpleText === "string") return field.simpleText;
     if (Array.isArray(field.runs)) return field.runs.map((r) => r.text).join("");
     return "";
-  }
-
-  function escapeHtml(str) {
-    return String(str || "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
   }
 
   async function fetchYearVideosForTopic(topic, years) {
@@ -475,10 +474,67 @@
       "ytd-watch-flexy #related, ytd-watch-flexy ytd-watch-next-secondary-results-renderer"
     );
     nativeRelated.forEach((el) => {
-      // Never hide our own widget if it was placed inside #related
       if (el.querySelector && el.querySelector("#yt-year-sidebar-widget")) return;
       el.classList.toggle("yt-yf-hidden-by-year", hide);
     });
+  }
+
+  function renderSidebarMessage(container, text) {
+    container.replaceChildren();
+    const msg = document.createElement("div");
+    msg.className = "yt-yf-sb-loading";
+    msg.textContent = text;
+    container.appendChild(msg);
+  }
+
+  function renderSidebarVideoCards(container, videos) {
+    container.replaceChildren();
+    for (const v of videos) {
+      const link = document.createElement("a");
+      link.className = "yt-yf-sb-video-card";
+      link.href = `/watch?v=${encodeURIComponent(v.videoId)}`;
+
+      const thumbWrap = document.createElement("div");
+      thumbWrap.className = "yt-yf-sb-thumb-wrap";
+
+      const img = document.createElement("img");
+      img.className = "yt-yf-sb-thumb";
+      img.src = v.thumbnail;
+      img.alt = "";
+      img.loading = "lazy";
+      thumbWrap.appendChild(img);
+
+      if (v.duration) {
+        const dur = document.createElement("span");
+        dur.className = "yt-yf-sb-duration";
+        dur.textContent = v.duration;
+        thumbWrap.appendChild(dur);
+      }
+
+      const meta = document.createElement("div");
+      meta.className = "yt-yf-sb-meta";
+
+      const titleDiv = document.createElement("div");
+      titleDiv.className = "yt-yf-sb-vtitle";
+      titleDiv.title = v.title;
+      titleDiv.textContent = v.title;
+
+      const chanDiv = document.createElement("div");
+      chanDiv.className = "yt-yf-sb-vchannel";
+      chanDiv.textContent = v.channel;
+
+      const statsDiv = document.createElement("div");
+      statsDiv.className = "yt-yf-sb-vstats";
+      statsDiv.textContent = [v.views, v.published].filter(Boolean).join(" • ");
+
+      meta.appendChild(titleDiv);
+      meta.appendChild(chanDiv);
+      meta.appendChild(statsDiv);
+
+      link.appendChild(thumbWrap);
+      link.appendChild(meta);
+      container.appendChild(link);
+    }
   }
 
   async function loadSidebarYearFeed(force = false) {
@@ -494,7 +550,7 @@
 
     if (!state.enabled || !state.years.length) {
       feedContainer.style.display = "none";
-      feedContainer.innerHTML = "";
+      feedContainer.replaceChildren();
       lastSidebarFetchKey = "";
       setNativeSidebarHidden(false);
       if (statusBadge) statusBadge.textContent = "Off";
@@ -523,13 +579,12 @@
     const yearsLabel = formatYearsCompact(state.years);
     if (statusBadge) statusBadge.textContent = `Loading ${yearsLabel}...`;
     feedContainer.style.display = "flex";
-    feedContainer.innerHTML = `<div class="yt-yf-sb-loading">⏳ Loading ${escapeHtml(yearsLabel)} sidebar feed for "<strong>${escapeHtml(topic)}</strong>"...</div>`;
+    renderSidebarMessage(feedContainer, `⏳ Loading ${yearsLabel} sidebar feed for "${topic}"...`);
     setNativeSidebarHidden(true);
 
     try {
       let videos = await fetchYearVideosForTopic(topic, state.years);
 
-      // If narrow topic returned too few results, broaden to first 2 words
       if (videos.length < 3 && topic.split(/\s+/).length > 2) {
         const broader = topic.split(/\s+/).slice(0, 2).join(" ");
         const more = await fetchYearVideosForTopic(broader, state.years);
@@ -540,34 +595,18 @@
       }
 
       if (!videos.length) {
-        feedContainer.innerHTML = `<div class="yt-yf-sb-loading">No videos found from ${escapeHtml(yearsLabel)} for "${escapeHtml(topic)}". Try editing the sidebar topic above.</div>`;
+        renderSidebarMessage(
+          feedContainer,
+          `No videos found from ${yearsLabel} for "${topic}". Try editing the sidebar topic above.`
+        );
         if (statusBadge) statusBadge.textContent = `${yearsLabel} · 0 videos`;
         return;
       }
 
       if (statusBadge) statusBadge.textContent = `${yearsLabel} · ${videos.length} videos`;
-
-      feedContainer.innerHTML = videos
-        .map(
-          (v) => `
-          <a class="yt-yf-sb-video-card" href="/watch?v=${encodeURIComponent(v.videoId)}">
-            <div class="yt-yf-sb-thumb-wrap">
-              <img class="yt-yf-sb-thumb" src="${escapeHtml(v.thumbnail)}" alt="" loading="lazy" />
-              ${v.duration ? `<span class="yt-yf-sb-duration">${escapeHtml(v.duration)}</span>` : ""}
-            </div>
-            <div class="yt-yf-sb-meta">
-              <div class="yt-yf-sb-vtitle" title="${escapeHtml(v.title)}">${escapeHtml(v.title)}</div>
-              <div class="yt-yf-sb-vchannel">${escapeHtml(v.channel)}</div>
-              <div class="yt-yf-sb-vstats">
-                ${escapeHtml([v.views, v.published].filter(Boolean).join(" • "))}
-              </div>
-            </div>
-          </a>
-        `
-        )
-        .join("");
+      renderSidebarVideoCards(feedContainer, videos);
     } catch (err) {
-      feedContainer.innerHTML = `<div class="yt-yf-sb-loading">Could not load sidebar feed.</div>`;
+      renderSidebarMessage(feedContainer, "Could not load sidebar feed.");
       setNativeSidebarHidden(false);
     } finally {
       isFetchingSidebar = false;
@@ -590,59 +629,88 @@
       const bar = document.createElement("div");
       bar.id = "yt-year-filter-bar";
 
-      const allYearsHtml = buildAllYearsButtonsHtml("yt-yf-chip");
+      const topRow = document.createElement("div");
+      topRow.className = "yt-yf-top-row";
 
-      bar.innerHTML = `
-        <div class="yt-yf-top-row">
-          <div class="yt-yf-brand">
-            <span class="yt-yf-dot" id="yt-yf-dot"></span>
-            <span>⏳ old-tube</span>
-          </div>
+      const brand = document.createElement("div");
+      brand.className = "yt-yf-brand";
+      const dot = document.createElement("span");
+      dot.className = "yt-yf-dot";
+      dot.id = "yt-yf-dot";
+      const brandLabel = document.createElement("span");
+      brandLabel.textContent = "⏳ old-tube";
+      brand.appendChild(dot);
+      brand.appendChild(brandLabel);
 
-          <div class="yt-yf-actions">
-            <button type="button" class="yt-yf-apply" id="yt-yf-apply-btn">Apply Year</button>
-            <button type="button" class="yt-yf-clear" id="yt-yf-clear-btn">Reset</button>
-          </div>
+      const actions = document.createElement("div");
+      actions.className = "yt-yf-actions";
 
-          <div class="yt-yf-right-controls">
-            <label class="yt-yf-strict-label" title="Hide Shorts shelves and videos outside your selected years">
-              <input type="checkbox" id="yt-yf-strict-toggle" ${state.strictFilter ? "checked" : ""} />
-              <span>Strict</span>
-            </label>
-            <div class="yt-yf-status">
-              <span id="yt-yf-status-text">All years shown</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="yt-yf-all-years">
-          ${allYearsHtml}
-        </div>
-      `;
-
-      targetContainer.prepend(bar);
-
-      document.getElementById("yt-yf-apply-btn").addEventListener("click", () => {
+      const applyBtn = document.createElement("button");
+      applyBtn.type = "button";
+      applyBtn.className = "yt-yf-apply";
+      applyBtn.id = "yt-yf-apply-btn";
+      applyBtn.textContent = "Apply Year";
+      applyBtn.addEventListener("click", () => {
         applyYearsToSearch(state.draftYears, state.draftYears.length > 0);
       });
 
-      document.getElementById("yt-yf-clear-btn").addEventListener("click", () => {
+      const clearBtn = document.createElement("button");
+      clearBtn.type = "button";
+      clearBtn.className = "yt-yf-clear";
+      clearBtn.id = "yt-yf-clear-btn";
+      clearBtn.textContent = "Reset";
+      clearBtn.addEventListener("click", () => {
         state.draftYears = [];
         applyYearsToSearch([], false);
       });
 
-      document.getElementById("yt-yf-strict-toggle").addEventListener("change", (e) => {
+      actions.appendChild(applyBtn);
+      actions.appendChild(clearBtn);
+
+      const rightControls = document.createElement("div");
+      rightControls.className = "yt-yf-right-controls";
+
+      const strictLabel = document.createElement("label");
+      strictLabel.className = "yt-yf-strict-label";
+      strictLabel.title = "Hide Shorts shelves and videos outside your selected years";
+
+      const strictInput = document.createElement("input");
+      strictInput.type = "checkbox";
+      strictInput.id = "yt-yf-strict-toggle";
+      strictInput.checked = state.strictFilter;
+      strictInput.addEventListener("change", (e) => {
         state.strictFilter = e.target.checked;
         browser.storage.local.set({ strictFilter: state.strictFilter });
         scheduleFilter(true);
       });
 
-      bar.querySelectorAll(".yt-yf-chip").forEach((chip) => {
-        chip.addEventListener("click", () => {
-          toggleDraftYear(chip.getAttribute("data-year"));
-        });
-      });
+      const strictSpan = document.createElement("span");
+      strictSpan.textContent = "Strict";
+      strictLabel.appendChild(strictInput);
+      strictLabel.appendChild(strictSpan);
 
+      const statusDiv = document.createElement("div");
+      statusDiv.className = "yt-yf-status";
+      const statusText = document.createElement("span");
+      statusText.id = "yt-yf-status-text";
+      statusText.textContent = "All years shown";
+      statusDiv.appendChild(statusText);
+
+      rightControls.appendChild(strictLabel);
+      rightControls.appendChild(statusDiv);
+
+      topRow.appendChild(brand);
+      topRow.appendChild(actions);
+      topRow.appendChild(rightControls);
+
+      const allYearsDiv = document.createElement("div");
+      allYearsDiv.className = "yt-yf-all-years";
+      appendAllYearButtons(allYearsDiv, "yt-yf-chip");
+
+      bar.appendChild(topRow);
+      bar.appendChild(allYearsDiv);
+
+      targetContainer.prepend(bar);
       updateAllUI();
     } finally {
       isUpdatingDOM = false;
@@ -674,67 +742,94 @@
       const widget = document.createElement("div");
       widget.id = "yt-year-sidebar-widget";
 
-      const allYearsHtml = buildAllYearsButtonsHtml("yt-yf-sb-chip");
+      const header = document.createElement("div");
+      header.className = "yt-yf-sb-header";
 
-      widget.innerHTML = `
-        <div class="yt-yf-sb-header">
-          <div class="yt-yf-sb-title">
-            <span class="yt-yf-dot" id="yt-yf-sb-dot"></span>
-            <span>⏳ old-tube Sidebar</span>
-          </div>
-          <span class="yt-yf-sb-badge" id="yt-yf-sidebar-status">Off</span>
-          <button type="button" class="yt-yf-sb-apply" id="yt-yf-sb-apply-btn">Apply</button>
-          <button type="button" class="yt-yf-sb-reset" id="yt-yf-sb-reset-btn">Reset</button>
-        </div>
-        <div class="yt-yf-sb-chips">
-          ${allYearsHtml}
-        </div>
-        <div class="yt-yf-sb-topic-row" id="yt-yf-sb-topic-row" style="display: none;">
-          <input type="text" id="yt-yf-sb-topic-input" class="yt-yf-sb-topic-input" placeholder="Sidebar topic..." title="Topic used to populate sidebar videos for your selected year(s)" />
-          <button type="button" id="yt-yf-sb-topic-btn" class="yt-yf-sb-topic-btn">Refresh</button>
-        </div>
-        <div class="yt-yf-sidebar-feed" id="yt-yf-sidebar-feed" style="display: none;"></div>
-      `;
+      const title = document.createElement("div");
+      title.className = "yt-yf-sb-title";
+      const sbDot = document.createElement("span");
+      sbDot.className = "yt-yf-dot";
+      sbDot.id = "yt-yf-sb-dot";
+      const sbTitleText = document.createElement("span");
+      sbTitleText.textContent = "⏳ old-tube Sidebar";
+      title.appendChild(sbDot);
+      title.appendChild(sbTitleText);
 
-      sidebarTarget.prepend(widget);
+      const badge = document.createElement("span");
+      badge.className = "yt-yf-sb-badge";
+      badge.id = "yt-yf-sidebar-status";
+      badge.textContent = "Off";
 
-      widget.querySelectorAll(".yt-yf-sb-chip").forEach((chip) => {
-        chip.addEventListener("click", () => {
-          toggleDraftYear(chip.getAttribute("data-year"));
-        });
+      const sbApply = document.createElement("button");
+      sbApply.type = "button";
+      sbApply.className = "yt-yf-sb-apply";
+      sbApply.id = "yt-yf-sb-apply-btn";
+      sbApply.textContent = "Apply";
+      sbApply.addEventListener("click", () => {
+        applyYearsToSearch(state.draftYears, state.draftYears.length > 0);
       });
 
-      const sbApply = document.getElementById("yt-yf-sb-apply-btn");
-      if (sbApply) {
-        sbApply.addEventListener("click", () => {
-          applyYearsToSearch(state.draftYears, state.draftYears.length > 0);
-        });
-      }
+      const sbReset = document.createElement("button");
+      sbReset.type = "button";
+      sbReset.className = "yt-yf-sb-reset";
+      sbReset.id = "yt-yf-sb-reset-btn";
+      sbReset.textContent = "Reset";
+      sbReset.addEventListener("click", () => {
+        state.draftYears = [];
+        applyYearsToSearch([], false);
+      });
 
-      const sbReset = document.getElementById("yt-yf-sb-reset-btn");
-      if (sbReset) {
-        sbReset.addEventListener("click", () => {
-          state.draftYears = [];
-          applyYearsToSearch([], false);
-        });
-      }
+      header.appendChild(title);
+      header.appendChild(badge);
+      header.appendChild(sbApply);
+      header.appendChild(sbReset);
 
-      const topicInput = document.getElementById("yt-yf-sb-topic-input");
-      const topicBtn = document.getElementById("yt-yf-sb-topic-btn");
-      if (topicBtn) {
-        topicBtn.addEventListener("click", () => {
+      const chipsDiv = document.createElement("div");
+      chipsDiv.className = "yt-yf-sb-chips";
+      appendAllYearButtons(chipsDiv, "yt-yf-sb-chip");
+
+      const topicRow = document.createElement("div");
+      topicRow.className = "yt-yf-sb-topic-row";
+      topicRow.id = "yt-yf-sb-topic-row";
+      topicRow.style.display = "none";
+
+      const topicInput = document.createElement("input");
+      topicInput.type = "text";
+      topicInput.id = "yt-yf-sb-topic-input";
+      topicInput.className = "yt-yf-sb-topic-input";
+      topicInput.placeholder = "Sidebar topic...";
+      topicInput.title = "Topic used to populate sidebar videos for your selected year(s)";
+      topicInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          e.stopPropagation();
           loadSidebarYearFeed(true);
-        });
-      }
-      if (topicInput) {
-        topicInput.addEventListener("keydown", (e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            e.stopPropagation();
-            loadSidebarYearFeed(true);
-          }
-        });
-      }
+        }
+      });
+
+      const topicBtn = document.createElement("button");
+      topicBtn.type = "button";
+      topicBtn.id = "yt-yf-sb-topic-btn";
+      topicBtn.className = "yt-yf-sb-topic-btn";
+      topicBtn.textContent = "Refresh";
+      topicBtn.addEventListener("click", () => {
+        loadSidebarYearFeed(true);
+      });
+
+      topicRow.appendChild(topicInput);
+      topicRow.appendChild(topicBtn);
+
+      const feedDiv = document.createElement("div");
+      feedDiv.className = "yt-yf-sidebar-feed";
+      feedDiv.id = "yt-yf-sidebar-feed";
+      feedDiv.style.display = "none";
+
+      widget.appendChild(header);
+      widget.appendChild(chipsDiv);
+      widget.appendChild(topicRow);
+      widget.appendChild(feedDiv);
+
+      sidebarTarget.prepend(widget);
 
       updateAllUI();
       if (state.enabled && state.years.length) {

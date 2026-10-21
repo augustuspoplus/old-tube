@@ -20,7 +20,7 @@ function normalizeYears(arr) {
 }
 
 function buildYearsGrid() {
-  yearsGrid.innerHTML = "";
+  yearsGrid.replaceChildren();
   for (let y = MIN_YEAR; y <= CURRENT_YEAR; y++) {
     const btn = document.createElement("button");
     btn.type = "button";

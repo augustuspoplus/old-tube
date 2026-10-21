@@ -1,7 +1,7 @@
-{
+﻿{
   "manifest_version": 2,
   "name": "old-tube",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Filter YouTube search results and sidebar feeds to only show videos from specific years.",
   "homepage_url": "https://github.com/augustuspoplus/old-tube",
   "icons": {
@@ -12,7 +12,12 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "old-tube@augustuspoplus.github.io",
-      "strict_min_version": "91.0"
+      "strict_min_version": "109.0",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
     }
   },
   "permissions": [
