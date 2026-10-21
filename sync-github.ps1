@@ -11,17 +11,39 @@ Set-Location $ProjectDir
 git config user.name "augustuspoplus"
 git config user.email "49472861+augustuspoplus@users.noreply.github.com"
 
-Write-Host "1. Packaging extension into dist/old-tube.zip..." -ForegroundColor Cyan
+Write-Host "1. Packaging Firefox Store (AMO) ready archive into dist/old-tube.zip..." -ForegroundColor Cyan
 New-Item -ItemType Directory -Path "$ProjectDir\dist" -Force | Out-Null
-Remove-Item "$ProjectDir\dist\youtube-year-time-machine.zip" -Force -ErrorAction SilentlyContinue
-Compress-Archive -Path `
-    "$ProjectDir\manifest.json", `
-    "$ProjectDir\content.js", `
-    "$ProjectDir\styles.css", `
-    "$ProjectDir\popup.html", `
-    "$ProjectDir\popup.js", `
-    "$ProjectDir\icons" `
-    -DestinationPath "$ProjectDir\dist\old-tube.zip" -Force
+$ZipPath = "$ProjectDir\dist\old-tube.zip"
+Remove-Item $ZipPath -Force -ErrorAction SilentlyContinue
+
+Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+$zipStream = [System.IO.File]::Open($ZipPath, [System.IO.FileMode]::Create)
+$archive = New-Object System.IO.Compression.ZipArchive($zipStream, [System.IO.Compression.ZipArchiveMode]::Create)
+
+$filesToPackage = @(
+    "manifest.json",
+    "content.js",
+    "styles.css",
+    "popup.html",
+    "popup.js",
+    "icons/icon-16.png",
+    "icons/icon-48.png",
+    "icons/icon-128.png",
+    "icons/logo.svg"
+)
+
+foreach ($relPath in $filesToPackage) {
+    $fullPath = Join-Path $ProjectDir ($relPath -replace '/', '\')
+    if (Test-Path $fullPath) {
+        # Ensure forward slashes inside zip for Mozilla AMO compatibility
+        [void][System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $fullPath, $relPath)
+    }
+}
+
+$archive.Dispose()
+$zipStream.Dispose()
 
 Write-Host "2. Staging and committing changes..." -ForegroundColor Cyan
 git add -A
