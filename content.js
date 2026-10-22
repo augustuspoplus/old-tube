@@ -14,6 +14,7 @@
   let filterTimeout = null;
   let lastSidebarFetchKey = "";
   let isFetchingSidebar = false;
+  let cachedSidebarVideos = [];
 
   function normalizeYears(yearsInput) {
     if (!yearsInput) return [];
@@ -171,6 +172,7 @@
     }
 
     lastSidebarFetchKey = "";
+    cachedSidebarVideos = [];
     updateAllUI();
     scheduleFilter(true);
     if (window.location.pathname === "/watch") {
@@ -468,6 +470,131 @@
     return results;
   }
 
+  // Replace YouTube's player endscreen video wall & autoplay card with year-matched videos
+  function syncEndscreenRecommendations() {
+    if (window.location.pathname !== "/watch") return;
+
+    const tiles = document.querySelectorAll(
+      "#movie_player .ytp-videowall-still, #movie_player .ytp-modern-videowall-still"
+    );
+
+    if (!state.enabled || !state.years.length) {
+      tiles.forEach((tile) => {
+        tile.classList.remove("yt-yf-hidden-by-year");
+      });
+      return;
+    }
+
+    // If year-matched videos haven't finished loading yet, hide modern tiles so they don't flash
+    if (!cachedSidebarVideos.length) {
+      tiles.forEach((tile) => {
+        tile.classList.add("yt-yf-hidden-by-year");
+      });
+      return;
+    }
+
+    tiles.forEach((tile, idx) => {
+      const v = cachedSidebarVideos[idx];
+      if (!v) {
+        tile.classList.add("yt-yf-hidden-by-year");
+        return;
+      }
+
+      tile.classList.remove("yt-yf-hidden-by-year");
+      tile.dataset.yfVideoId = v.videoId;
+      tile.href = `/watch?v=${encodeURIComponent(v.videoId)}`;
+      tile.setAttribute("aria-label", `${v.title} by ${v.channel}`);
+
+      const imgEl = tile.querySelector(
+        ".ytp-videowall-still-image, .ytp-modern-videowall-still-image"
+      );
+      if (imgEl) {
+        imgEl.style.backgroundImage = `url("${v.thumbnail}")`;
+      }
+
+      const titleEl = tile.querySelector(
+        ".ytp-videowall-still-info-title, .ytp-modern-videowall-still-info-title"
+      );
+      if (titleEl) {
+        titleEl.textContent = v.title;
+      }
+
+      const authorEl = tile.querySelector(
+        ".ytp-videowall-still-info-author, .ytp-modern-videowall-still-info-author"
+      );
+      if (authorEl) {
+        authorEl.textContent = [v.channel, v.views, v.published].filter(Boolean).join(" • ");
+      }
+
+      const durEl = tile.querySelector(
+        ".ytp-videowall-still-info-duration, .ytp-modern-videowall-still-info-duration"
+      );
+      if (durEl) {
+        durEl.textContent = v.duration || "";
+      }
+
+      if (!tile.dataset.yfBound) {
+        tile.dataset.yfBound = "1";
+        tile.addEventListener(
+          "click",
+          (e) => {
+            if (!state.enabled || !state.years.length || !tile.dataset.yfVideoId) return;
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            window.location.href = `/watch?v=${encodeURIComponent(tile.dataset.yfVideoId)}`;
+          },
+          true
+        );
+      }
+    });
+
+    // Also update Autoplay "Up Next" endscreen card if visible
+    const firstVideo = cachedSidebarVideos[0];
+    if (firstVideo) {
+      const upnextContainer = document.querySelector(
+        "#movie_player .ytp-autonav-endscreen-upnext-container"
+      );
+      if (upnextContainer) {
+        const upThumb = upnextContainer.querySelector(".ytp-autonav-endscreen-upnext-thumbnail");
+        if (upThumb) {
+          upThumb.style.backgroundImage = `url("${firstVideo.thumbnail}")`;
+        }
+        const upTitle = upnextContainer.querySelector(".ytp-autonav-endscreen-upnext-title");
+        if (upTitle) {
+          upTitle.textContent = firstVideo.title;
+        }
+        const upAuthor = upnextContainer.querySelector(".ytp-autonav-endscreen-upnext-author");
+        if (upAuthor) {
+          upAuthor.textContent = firstVideo.channel;
+        }
+        const upButtons = upnextContainer.querySelectorAll(
+          ".ytp-autonav-endscreen-upnext-play-button, .ytp-autonav-endscreen-link-container"
+        );
+        upButtons.forEach((btn) => {
+          btn.dataset.yfVideoId = firstVideo.videoId;
+          if (btn.tagName === "A") {
+            btn.href = `/watch?v=${encodeURIComponent(firstVideo.videoId)}`;
+          }
+          if (!btn.dataset.yfBound) {
+            btn.dataset.yfBound = "1";
+            btn.addEventListener(
+              "click",
+              (e) => {
+                if (!state.enabled || !state.years.length || !btn.dataset.yfVideoId) return;
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                window.location.href = `/watch?v=${encodeURIComponent(btn.dataset.yfVideoId)}`;
+              },
+              true
+            );
+          }
+        });
+      }
+    }
+  }
+
   // Toggle visibility of YouTube's default watch sidebar feed when our year sidebar feed is active
   function setNativeSidebarHidden(hide) {
     const nativeRelated = document.querySelectorAll(
@@ -538,7 +665,7 @@
   }
 
   async function loadSidebarYearFeed(force = false) {
-    if (window.location.pathname !== "/watch" || !state.showSidebarWidget) {
+    if (window.location.pathname !== "/watch") {
       setNativeSidebarHidden(false);
       return;
     }
@@ -546,14 +673,17 @@
     const feedContainer = document.getElementById("yt-yf-sidebar-feed");
     const statusBadge = document.getElementById("yt-yf-sidebar-status");
     const topicInput = document.getElementById("yt-yf-sb-topic-input");
-    if (!feedContainer) return;
 
     if (!state.enabled || !state.years.length) {
-      feedContainer.style.display = "none";
-      feedContainer.replaceChildren();
+      cachedSidebarVideos = [];
       lastSidebarFetchKey = "";
+      if (feedContainer) {
+        feedContainer.style.display = "none";
+        feedContainer.replaceChildren();
+      }
       setNativeSidebarHidden(false);
       if (statusBadge) statusBadge.textContent = "Off";
+      syncEndscreenRecommendations();
       return;
     }
 
@@ -570,7 +700,10 @@
     }
 
     const fetchKey = `${currentVid}|${topic}|${state.years.join(",")}|${state.strictFilter}`;
-    if (!force && fetchKey === lastSidebarFetchKey) return;
+    if (!force && fetchKey === lastSidebarFetchKey) {
+      syncEndscreenRecommendations();
+      return;
+    }
     if (isFetchingSidebar) return;
 
     lastSidebarFetchKey = fetchKey;
@@ -578,9 +711,11 @@
 
     const yearsLabel = formatYearsCompact(state.years);
     if (statusBadge) statusBadge.textContent = `Loading ${yearsLabel}...`;
-    feedContainer.style.display = "flex";
-    renderSidebarMessage(feedContainer, `⏳ Loading ${yearsLabel} sidebar feed for "${topic}"...`);
-    setNativeSidebarHidden(true);
+    if (feedContainer && state.showSidebarWidget) {
+      feedContainer.style.display = "flex";
+      renderSidebarMessage(feedContainer, `⏳ Loading ${yearsLabel} sidebar feed for "${topic}"...`);
+      setNativeSidebarHidden(true);
+    }
 
     try {
       let videos = await fetchYearVideosForTopic(topic, state.years);
@@ -594,6 +729,11 @@
         }
       }
 
+      cachedSidebarVideos = videos;
+      syncEndscreenRecommendations();
+
+      if (!feedContainer || !state.showSidebarWidget) return;
+
       if (!videos.length) {
         renderSidebarMessage(
           feedContainer,
@@ -606,7 +746,9 @@
       if (statusBadge) statusBadge.textContent = `${yearsLabel} · ${videos.length} videos`;
       renderSidebarVideoCards(feedContainer, videos);
     } catch (err) {
-      renderSidebarMessage(feedContainer, "Could not load sidebar feed.");
+      if (feedContainer) {
+        renderSidebarMessage(feedContainer, "Could not load sidebar feed.");
+      }
       setNativeSidebarHidden(false);
     } finally {
       isFetchingSidebar = false;
@@ -955,6 +1097,7 @@
   window.addEventListener("yt-navigate-finish", () => {
     cleanSearchBarAndTitle();
     lastSidebarFetchKey = "";
+    cachedSidebarVideos = [];
     setTimeout(syncStateAndRun, 250);
   });
 
@@ -971,9 +1114,10 @@
       injectSidebarWidget();
       if (state.enabled && state.years.length) {
         loadSidebarYearFeed(false);
+        syncEndscreenRecommendations();
       }
     }
-  }, 900);
+  }, 800);
 
   setupSearchInterceptors();
   syncStateAndRun();
