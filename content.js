@@ -15,6 +15,7 @@
   let lastSidebarFetchKey = "";
   let isFetchingSidebar = false;
   let cachedSidebarVideos = [];
+  let lastEndscreenSignature = "";
 
   function normalizeYears(yearsInput) {
     if (!yearsInput) return [];
@@ -102,8 +103,19 @@
     return `${clean} after:${minYear - 1}-12-31 before:${maxYear + 1}-01-01`.trim();
   }
 
+  function syncRootActiveAttribute() {
+    const isActive = Boolean(state.enabled && state.years.length > 0);
+    if (isActive) {
+      document.documentElement.setAttribute("data-oldtube-active", "true");
+    } else {
+      document.documentElement.removeAttribute("data-oldtube-active");
+    }
+  }
+
   // Keep the YouTube search bar & tab title completely clean of ugly before:/after: operators
   function cleanSearchBarAndTitle() {
+    syncRootActiveAttribute();
+
     const inputs = document.querySelectorAll(
       'input#search, input[name="search_query"], input.ytSearchboxComponentInput'
     );
@@ -149,6 +161,7 @@
     state.years = normalized;
     state.draftYears = [...normalized];
     state.enabled = normalized.length > 0 && forceEnable;
+    syncRootActiveAttribute();
 
     browser.storage.local.set({
       enabled: state.enabled,
@@ -173,6 +186,7 @@
 
     lastSidebarFetchKey = "";
     cachedSidebarVideos = [];
+    lastEndscreenSignature = "";
     updateAllUI();
     scheduleFilter(true);
     if (window.location.pathname === "/watch") {
@@ -243,23 +257,36 @@
   }
 
   // Check if video upload date matches ANY of the selected target years
+  // Supports both full ("12 years ago", "3 months ago") and short ("12y ago", "3mo ago", "5d ago") formats
   function matchesTargetYears(metadataText, titleText, targetYears) {
     const numericTargets = targetYears.map((y) => parseInt(y, 10)).filter((y) => !isNaN(y));
     if (!numericTargets.length) return true;
 
-    const combined = `${metadataText} ${titleText}`;
+    const combined = `${metadataText || ""} ${titleText || ""}`;
 
-    const yearsAgoMatch = combined.match(/(\d+)\s+years?\s+ago/i);
+    // Match "12 years ago", "12 yr ago", "12y ago"
+    const yearsAgoMatch = combined.match(/\b(\d+)\s*(?:years?|yrs?|y)\s+ago\b/i);
     if (yearsAgoMatch) {
       const yearsAgo = parseInt(yearsAgoMatch[1], 10);
       const estimatedYear = CURRENT_YEAR - yearsAgo;
       return numericTargets.some((target) => Math.abs(estimatedYear - target) <= 1);
     }
 
-    if (/\b(\d+)\s+(months?|weeks?|days?|hours?|minutes?|seconds?)\s+ago\b/i.test(combined)) {
+    // Match sub-year recent uploads: "3 months ago", "3mo ago", "2 weeks ago", "2w ago", "4 days ago", "4d ago", "5 hours ago", "5h ago", "10 minutes ago", "10m ago"
+    if (
+      /\b(\d+)\s*(?:months?|mos?|mo|weeks?|wks?|w|days?|d|hours?|hrs?|h|minutes?|mins?|m|seconds?|secs?|s)\s+ago\b/i.test(
+        combined
+      )
+    ) {
       return numericTargets.some(
         (target) => target === CURRENT_YEAR || target === CURRENT_YEAR - 1
       );
+    }
+
+    // If all selected years are older than last year, reject items with no recognizable "Xy ago" date (e.g. Live streams, Mixes, Promoted modern videos)
+    const maxTarget = Math.max(...numericTargets);
+    if (maxTarget < CURRENT_YEAR - 1) {
+      return false;
     }
 
     return true;
@@ -449,7 +476,7 @@
       const duration = extractText(v.lengthText);
 
       if (!title) continue;
-      if (state.strictFilter && published && !matchesTargetYears(published, title, years)) {
+      if (state.strictFilter && !matchesTargetYears(published, title, years)) {
         continue;
       }
 
@@ -470,129 +497,84 @@
     return results;
   }
 
-  // Replace YouTube's player endscreen video wall & autoplay card with year-matched videos
+  // Inject our own year-matched end-screen grid inside #movie_player .html5-endscreen
+  // while CSS hides all native YouTube modern endscreen tiles
   function syncEndscreenRecommendations() {
     if (window.location.pathname !== "/watch") return;
 
-    const tiles = document.querySelectorAll(
-      "#movie_player .ytp-videowall-still, #movie_player .ytp-modern-videowall-still"
+    const endscreenContainers = document.querySelectorAll(
+      "#movie_player .ytp-endscreen-content, #movie_player .ytp-fullscreen-grid-stills-container"
     );
 
     if (!state.enabled || !state.years.length) {
-      tiles.forEach((tile) => {
-        tile.classList.remove("yt-yf-hidden-by-year");
-      });
+      document.querySelectorAll("#yt-yf-endscreen-grid").forEach((el) => el.remove());
+      lastEndscreenSignature = "";
       return;
     }
 
-    // If year-matched videos haven't finished loading yet, hide modern tiles so they don't flash
-    if (!cachedSidebarVideos.length) {
-      tiles.forEach((tile) => {
-        tile.classList.add("yt-yf-hidden-by-year");
-      });
-      return;
-    }
+    if (!endscreenContainers.length || !cachedSidebarVideos.length) return;
 
-    tiles.forEach((tile, idx) => {
-      const v = cachedSidebarVideos[idx];
-      if (!v) {
-        tile.classList.add("yt-yf-hidden-by-year");
-        return;
-      }
+    const sig = cachedSidebarVideos
+      .slice(0, 9)
+      .map((v) => v.videoId)
+      .join(",");
 
-      tile.classList.remove("yt-yf-hidden-by-year");
-      tile.dataset.yfVideoId = v.videoId;
-      tile.href = `/watch?v=${encodeURIComponent(v.videoId)}`;
-      tile.setAttribute("aria-label", `${v.title} by ${v.channel}`);
+    endscreenContainers.forEach((container) => {
+      let customGrid = container.querySelector(".yt-yf-endscreen-grid");
+      if (customGrid && customGrid.dataset.sig === sig) return;
 
-      const imgEl = tile.querySelector(
-        ".ytp-videowall-still-image, .ytp-modern-videowall-still-image"
-      );
-      if (imgEl) {
-        imgEl.style.backgroundImage = `url("${v.thumbnail}")`;
-      }
+      if (customGrid) customGrid.remove();
 
-      const titleEl = tile.querySelector(
-        ".ytp-videowall-still-info-title, .ytp-modern-videowall-still-info-title"
-      );
-      if (titleEl) {
+      customGrid = document.createElement("div");
+      customGrid.className = "yt-yf-endscreen-grid";
+      customGrid.setAttribute("data-oldtube-tile", "1");
+      customGrid.dataset.sig = sig;
+
+      const items = cachedSidebarVideos.slice(0, 6);
+      for (const v of items) {
+        const card = document.createElement("a");
+        card.className = "yt-yf-endscreen-card";
+        card.href = `/watch?v=${encodeURIComponent(v.videoId)}`;
+        card.style.backgroundImage = `url("${v.thumbnail}")`;
+
+        const overlay = document.createElement("div");
+        overlay.className = "yt-yf-endscreen-overlay";
+
+        const titleEl = document.createElement("div");
+        titleEl.className = "yt-yf-endscreen-title";
         titleEl.textContent = v.title;
-      }
 
-      const authorEl = tile.querySelector(
-        ".ytp-videowall-still-info-author, .ytp-modern-videowall-still-info-author"
-      );
-      if (authorEl) {
-        authorEl.textContent = [v.channel, v.views, v.published].filter(Boolean).join(" • ");
-      }
+        const metaEl = document.createElement("div");
+        metaEl.className = "yt-yf-endscreen-meta";
+        metaEl.textContent = [v.channel, v.views, v.published].filter(Boolean).join(" • ");
 
-      const durEl = tile.querySelector(
-        ".ytp-videowall-still-info-duration, .ytp-modern-videowall-still-info-duration"
-      );
-      if (durEl) {
-        durEl.textContent = v.duration || "";
-      }
+        overlay.appendChild(titleEl);
+        overlay.appendChild(metaEl);
 
-      if (!tile.dataset.yfBound) {
-        tile.dataset.yfBound = "1";
-        tile.addEventListener(
+        if (v.duration) {
+          const durEl = document.createElement("span");
+          durEl.className = "yt-yf-endscreen-duration";
+          durEl.textContent = v.duration;
+          card.appendChild(durEl);
+        }
+
+        card.appendChild(overlay);
+        card.addEventListener(
           "click",
           (e) => {
-            if (!state.enabled || !state.years.length || !tile.dataset.yfVideoId) return;
             e.preventDefault();
             e.stopPropagation();
             e.stopImmediatePropagation();
-            window.location.href = `/watch?v=${encodeURIComponent(tile.dataset.yfVideoId)}`;
+            window.location.href = `/watch?v=${encodeURIComponent(v.videoId)}`;
           },
           true
         );
-      }
-    });
 
-    // Also update Autoplay "Up Next" endscreen card if visible
-    const firstVideo = cachedSidebarVideos[0];
-    if (firstVideo) {
-      const upnextContainer = document.querySelector(
-        "#movie_player .ytp-autonav-endscreen-upnext-container"
-      );
-      if (upnextContainer) {
-        const upThumb = upnextContainer.querySelector(".ytp-autonav-endscreen-upnext-thumbnail");
-        if (upThumb) {
-          upThumb.style.backgroundImage = `url("${firstVideo.thumbnail}")`;
-        }
-        const upTitle = upnextContainer.querySelector(".ytp-autonav-endscreen-upnext-title");
-        if (upTitle) {
-          upTitle.textContent = firstVideo.title;
-        }
-        const upAuthor = upnextContainer.querySelector(".ytp-autonav-endscreen-upnext-author");
-        if (upAuthor) {
-          upAuthor.textContent = firstVideo.channel;
-        }
-        const upButtons = upnextContainer.querySelectorAll(
-          ".ytp-autonav-endscreen-upnext-play-button, .ytp-autonav-endscreen-link-container"
-        );
-        upButtons.forEach((btn) => {
-          btn.dataset.yfVideoId = firstVideo.videoId;
-          if (btn.tagName === "A") {
-            btn.href = `/watch?v=${encodeURIComponent(firstVideo.videoId)}`;
-          }
-          if (!btn.dataset.yfBound) {
-            btn.dataset.yfBound = "1";
-            btn.addEventListener(
-              "click",
-              (e) => {
-                if (!state.enabled || !state.years.length || !btn.dataset.yfVideoId) return;
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-                window.location.href = `/watch?v=${encodeURIComponent(btn.dataset.yfVideoId)}`;
-              },
-              true
-            );
-          }
-        });
+        customGrid.appendChild(card);
       }
-    }
+
+      container.appendChild(customGrid);
+    });
   }
 
   // Toggle visibility of YouTube's default watch sidebar feed when our year sidebar feed is active
@@ -1098,6 +1080,7 @@
     cleanSearchBarAndTitle();
     lastSidebarFetchKey = "";
     cachedSidebarVideos = [];
+    lastEndscreenSignature = "";
     setTimeout(syncStateAndRun, 250);
   });
 
@@ -1111,13 +1094,14 @@
         runStrictDOMFilter();
       }
     } else if (window.location.pathname === "/watch") {
+      syncRootActiveAttribute();
       injectSidebarWidget();
       if (state.enabled && state.years.length) {
         loadSidebarYearFeed(false);
         syncEndscreenRecommendations();
       }
     }
-  }, 800);
+  }, 600);
 
   setupSearchInterceptors();
   syncStateAndRun();

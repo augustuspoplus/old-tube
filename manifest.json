@@ -1,7 +1,7 @@
 ﻿{
   "manifest_version": 2,
   "name": "old-tube",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Filter YouTube search results and sidebar feeds to only show videos from specific years.",
   "homepage_url": "https://github.com/augustuspoplus/old-tube",
   "icons": {
