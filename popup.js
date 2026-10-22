@@ -4,6 +4,7 @@ const MIN_YEAR = 2005;
 const yearsGrid = document.getElementById("years-grid");
 const sidebarCheckbox = document.getElementById("sidebar-checkbox");
 const strictCheckbox = document.getElementById("strict-checkbox");
+const annotationsCheckbox = document.getElementById("annotations-checkbox");
 const statusBadge = document.getElementById("status-badge");
 const applyBtn = document.getElementById("apply-btn");
 const clearBtn = document.getElementById("clear-btn");
@@ -58,7 +59,7 @@ function renderUI() {
   });
 }
 
-function saveAndBroadcast(enabled, years, strictFilter, showSidebarWidget) {
+function saveAndBroadcast(enabled, years, strictFilter, showSidebarWidget, hideAnnotations) {
   const norm = normalizeYears(years);
   const isEnabled = Boolean(enabled && norm.length);
   selectedYears = isEnabled ? norm : [];
@@ -69,7 +70,8 @@ function saveAndBroadcast(enabled, years, strictFilter, showSidebarWidget) {
       years: selectedYears,
       year: selectedYears[0] || "",
       strictFilter,
-      showSidebarWidget
+      showSidebarWidget,
+      hideAnnotations
     })
     .then(() => {
       renderUI();
@@ -83,7 +85,8 @@ function saveAndBroadcast(enabled, years, strictFilter, showSidebarWidget) {
           years: selectedYears,
           year: selectedYears[0] || "",
           strictFilter,
-          showSidebarWidget
+          showSidebarWidget,
+          hideAnnotations
         });
       }
     });
@@ -92,12 +95,13 @@ function saveAndBroadcast(enabled, years, strictFilter, showSidebarWidget) {
 buildYearsGrid();
 
 browser.storage.local
-  .get(["enabled", "years", "year", "strictFilter", "showSidebarWidget"])
+  .get(["enabled", "years", "year", "strictFilter", "showSidebarWidget", "hideAnnotations"])
   .then((data) => {
     const initialYears = data.years || (data.year ? [data.year] : []);
     selectedYears = data.enabled ? normalizeYears(initialYears) : [];
     strictCheckbox.checked = data.strictFilter !== false;
     sidebarCheckbox.checked = data.showSidebarWidget !== false;
+    annotationsCheckbox.checked = data.hideAnnotations !== false;
     renderUI();
   });
 
@@ -106,12 +110,19 @@ applyBtn.addEventListener("click", () => {
     selectedYears.length > 0,
     selectedYears,
     strictCheckbox.checked,
-    sidebarCheckbox.checked
+    sidebarCheckbox.checked,
+    annotationsCheckbox.checked
   );
 });
 
 clearBtn.addEventListener("click", () => {
-  saveAndBroadcast(false, [], strictCheckbox.checked, sidebarCheckbox.checked);
+  saveAndBroadcast(
+    false,
+    [],
+    strictCheckbox.checked,
+    sidebarCheckbox.checked,
+    annotationsCheckbox.checked
+  );
 });
 
 sidebarCheckbox.addEventListener("change", () => {
@@ -119,7 +130,8 @@ sidebarCheckbox.addEventListener("change", () => {
     selectedYears.length > 0,
     selectedYears,
     strictCheckbox.checked,
-    sidebarCheckbox.checked
+    sidebarCheckbox.checked,
+    annotationsCheckbox.checked
   );
 });
 
@@ -128,6 +140,17 @@ strictCheckbox.addEventListener("change", () => {
     selectedYears.length > 0,
     selectedYears,
     strictCheckbox.checked,
-    sidebarCheckbox.checked
+    sidebarCheckbox.checked,
+    annotationsCheckbox.checked
+  );
+});
+
+annotationsCheckbox.addEventListener("change", () => {
+  saveAndBroadcast(
+    selectedYears.length > 0,
+    selectedYears,
+    strictCheckbox.checked,
+    sidebarCheckbox.checked,
+    annotationsCheckbox.checked
   );
 });

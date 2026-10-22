@@ -7,7 +7,8 @@
     years: [],      // Committed active years, e.g. ["2008", "2009"]
     draftYears: [], // Highlighted years waiting for Apply
     strictFilter: true,
-    showSidebarWidget: true
+    showSidebarWidget: true,
+    hideAnnotations: true
   };
 
   let isUpdatingDOM = false;
@@ -110,6 +111,12 @@
     } else {
       document.documentElement.removeAttribute("data-oldtube-active");
     }
+
+    if (state.hideAnnotations) {
+      document.documentElement.setAttribute("data-oldtube-no-annotations", "true");
+    } else {
+      document.documentElement.removeAttribute("data-oldtube-no-annotations");
+    }
   }
 
   // Keep the YouTube search bar & tab title completely clean of ugly before:/after: operators
@@ -168,7 +175,8 @@
       years: state.years,
       year: state.years[0] || "",
       strictFilter: state.strictFilter,
-      showSidebarWidget: state.showSidebarWidget
+      showSidebarWidget: state.showSidebarWidget,
+      hideAnnotations: state.hideAnnotations
     });
 
     if (window.location.pathname === "/results" && cleanQ) {
@@ -1029,13 +1037,16 @@
     const url = new URL(window.location.href);
 
     browser.storage.local
-      .get(["enabled", "years", "year", "strictFilter", "showSidebarWidget"])
+      .get(["enabled", "years", "year", "strictFilter", "showSidebarWidget", "hideAnnotations"])
       .then((stored) => {
         if (stored.strictFilter !== undefined) {
           state.strictFilter = stored.strictFilter;
         }
         if (stored.showSidebarWidget !== undefined) {
           state.showSidebarWidget = stored.showSidebarWidget;
+        }
+        if (stored.hideAnnotations !== undefined) {
+          state.hideAnnotations = stored.hideAnnotations;
         }
 
         const storedYears = normalizeYears(stored.years || (stored.year ? [stored.year] : []));
@@ -1070,6 +1081,8 @@
     if (msg.type === "APPLY_YEAR_FILTER") {
       if (msg.strictFilter !== undefined) state.strictFilter = msg.strictFilter;
       if (msg.showSidebarWidget !== undefined) state.showSidebarWidget = msg.showSidebarWidget;
+      if (msg.hideAnnotations !== undefined) state.hideAnnotations = msg.hideAnnotations;
+      syncRootActiveAttribute();
       const incomingYears = msg.years || (msg.year ? [msg.year] : []);
       injectSidebarWidget();
       applyYearsToSearch(incomingYears, msg.enabled);

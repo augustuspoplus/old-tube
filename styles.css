@@ -459,6 +459,22 @@ html[data-oldtube-active="true"] #movie_player .ytp-endscreen-next {
   z-index: 2;
 }
 
+/* Block Modern YouTube Annotations, Creator End-Screen Cards, Info Popups & Overlays */
+html[data-oldtube-no-annotations="true"] #movie_player .ytp-ce-element,
+html[data-oldtube-no-annotations="true"] #movie_player .ytp-ce-covering-overlay,
+html[data-oldtube-no-annotations="true"] #movie_player .ytp-ce-element-shadow,
+html[data-oldtube-no-annotations="true"] #movie_player .ytp-cards-teaser,
+html[data-oldtube-no-annotations="true"] #movie_player .ytp-cards-button,
+html[data-oldtube-no-annotations="true"] #movie_player .iv-branding,
+html[data-oldtube-no-annotations="true"] #movie_player .iv-card,
+html[data-oldtube-no-annotations="true"] #movie_player .ytp-paid-content-overlay,
+html[data-oldtube-no-annotations="true"] #movie_player .ytp-featured-product,
+html[data-oldtube-no-annotations="true"] #movie_player .ytp-suggested-action {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 .yt-yf-hidden-by-year {
   display: none !important;
 }
