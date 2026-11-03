@@ -8,7 +8,8 @@
     draftYears: [], // Highlighted years waiting for Apply
     strictFilter: true,
     showSidebarWidget: true,
-    hideAnnotations: true
+    hideAnnotations: true,
+    filterComments: true
   };
 
   let isUpdatingDOM = false;
@@ -17,6 +18,9 @@
   let isFetchingSidebar = false;
   let cachedSidebarVideos = [];
   let lastEndscreenSignature = "";
+  let commentScanCount = 0;
+  let lastCommentScanAt = 0;
+  let lastCommentScanKey = "";
 
   function normalizeYears(yearsInput) {
     if (!yearsInput) return [];
@@ -176,7 +180,8 @@
       year: state.years[0] || "",
       strictFilter: state.strictFilter,
       showSidebarWidget: state.showSidebarWidget,
-      hideAnnotations: state.hideAnnotations
+      hideAnnotations: state.hideAnnotations,
+      filterComments: state.filterComments
     });
 
     if (window.location.pathname === "/results" && cleanQ) {
@@ -195,10 +200,13 @@
     lastSidebarFetchKey = "";
     cachedSidebarVideos = [];
     lastEndscreenSignature = "";
+    commentScanCount = 0;
     updateAllUI();
     scheduleFilter(true);
     if (window.location.pathname === "/watch") {
       loadSidebarYearFeed(true);
+      injectCommentsFilterBar();
+      filterWatchComments();
     }
   }
 
@@ -972,6 +980,171 @@
     }
   }
 
+  function triggerMoreCommentsBatch(force = false) {
+    const continuation = document.querySelector(
+      "ytd-comments ytd-item-section-renderer ytd-continuation-item-renderer, ytd-comments ytd-continuation-item-renderer"
+    );
+    if (!continuation) return false;
+
+    const now = Date.now();
+    if (!force && now - lastCommentScanAt < 1400) return false;
+    lastCommentScanAt = now;
+
+    window.dispatchEvent(new Event("scroll"));
+    document.dispatchEvent(new Event("scroll"));
+    const button = continuation.querySelector("button, tp-yt-paper-button");
+    if (button) button.click();
+    return true;
+  }
+
+  function injectCommentsFilterBar() {
+    const existing = document.getElementById("yt-year-comments-bar");
+    if (window.location.pathname !== "/watch" || !state.filterComments) {
+      if (existing) existing.remove();
+      return;
+    }
+
+    if (existing) return;
+
+    const commentsContainer = document.querySelector("ytd-comments#comments");
+    if (!commentsContainer) return;
+
+    const bar = document.createElement("div");
+    bar.id = "yt-year-comments-bar";
+
+    const left = document.createElement("div");
+    left.className = "yt-yf-cm-left";
+
+    const dot = document.createElement("span");
+    dot.className = "yt-yf-dot";
+    dot.id = "yt-yf-cm-dot";
+
+    const label = document.createElement("span");
+    label.className = "yt-yf-cm-title";
+    label.textContent = "⏳ old-tube Comments";
+
+    const status = document.createElement("span");
+    status.className = "yt-yf-cm-status";
+    status.id = "yt-yf-cm-status";
+    status.textContent = "All comment years shown";
+
+    left.appendChild(dot);
+    left.appendChild(label);
+    left.appendChild(status);
+
+    const right = document.createElement("div");
+    right.className = "yt-yf-cm-right";
+
+    const scanBtn = document.createElement("button");
+    scanBtn.type = "button";
+    scanBtn.className = "yt-yf-cm-scan-btn";
+    scanBtn.id = "yt-yf-cm-scan-btn";
+    scanBtn.textContent = "+ Scan More Comments";
+    scanBtn.title = "Load another batch of YouTube comments and filter for matching years";
+    scanBtn.addEventListener("click", () => {
+      commentScanCount = 0;
+      triggerMoreCommentsBatch(true);
+    });
+
+    const toggleLabel = document.createElement("label");
+    toggleLabel.className = "yt-yf-cm-toggle-label";
+    toggleLabel.title = "Filter comments to only show those posted in your selected year(s)";
+
+    const toggleInput = document.createElement("input");
+    toggleInput.type = "checkbox";
+    toggleInput.id = "yt-yf-cm-toggle";
+    toggleInput.checked = state.filterComments;
+    toggleInput.addEventListener("change", (e) => {
+      state.filterComments = e.target.checked;
+      browser.storage.local.set({ filterComments: state.filterComments });
+      filterWatchComments();
+    });
+
+    const toggleSpan = document.createElement("span");
+    toggleSpan.textContent = "Year Filter";
+    toggleLabel.appendChild(toggleInput);
+    toggleLabel.appendChild(toggleSpan);
+
+    right.appendChild(scanBtn);
+    right.appendChild(toggleLabel);
+
+    bar.appendChild(left);
+    bar.appendChild(right);
+
+    commentsContainer.prepend(bar);
+  }
+
+  function filterWatchComments() {
+    if (window.location.pathname !== "/watch") return;
+
+    const threads = document.querySelectorAll("ytd-comments ytd-comment-thread-renderer");
+    const isActive = Boolean(state.enabled && state.years.length > 0 && state.filterComments);
+
+    const cmDot = document.getElementById("yt-yf-cm-dot");
+    const cmStatus = document.getElementById("yt-yf-cm-status");
+    const cmScanBtn = document.getElementById("yt-yf-cm-scan-btn");
+    const cmToggle = document.getElementById("yt-yf-cm-toggle");
+
+    if (cmDot) cmDot.classList.toggle("active", isActive);
+    if (cmToggle && cmToggle.checked !== state.filterComments) {
+      cmToggle.checked = state.filterComments;
+    }
+
+    if (!isActive) {
+      threads.forEach((el) => el.classList.remove("yt-yf-hidden-by-year"));
+      if (cmStatus) {
+        cmStatus.textContent = state.filterComments
+          ? "Select a year to filter comments"
+          : "Comment year filter paused";
+      }
+      if (cmScanBtn) cmScanBtn.style.display = "none";
+      return;
+    }
+
+    const currentVid = new URL(window.location.href).searchParams.get("v") || "";
+    const scanKey = `${currentVid}|${state.years.join(",")}`;
+    if (scanKey !== lastCommentScanKey) {
+      lastCommentScanKey = scanKey;
+      commentScanCount = 0;
+    }
+
+    let shownCount = 0;
+    let hiddenCount = 0;
+
+    threads.forEach((thread) => {
+      const timeEl = thread.querySelector(
+        '#published-time-text a, #published-time-text, a[href*="lc="], .yt-core-attributed-string[href*="lc="]'
+      );
+      const timeText = timeEl ? timeEl.textContent.trim() : "";
+      if (!timeText) return;
+
+      if (matchesTargetYears(timeText, "", state.years)) {
+        thread.classList.remove("yt-yf-hidden-by-year");
+        shownCount++;
+      } else {
+        thread.classList.add("yt-yf-hidden-by-year");
+        hiddenCount++;
+      }
+    });
+
+    const yearsLabel = formatYearsCompact(state.years);
+    if (cmStatus) {
+      cmStatus.textContent = `${yearsLabel} · ${shownCount} matched${
+        hiddenCount > 0 ? ` (${hiddenCount} hidden)` : ""
+      }`;
+    }
+    if (cmScanBtn) {
+      cmScanBtn.style.display = "inline-flex";
+    }
+
+    // Auto-trigger loading more comment batches if fewer than 6 matching comments are visible
+    if (threads.length > 0 && shownCount < 6 && commentScanCount < 6) {
+      if (triggerMoreCommentsBatch(false)) {
+        commentScanCount++;
+      }
+    }
+  }
+
   function updateAllUI() {
     cleanSearchBarAndTitle();
 
@@ -1037,7 +1210,15 @@
     const url = new URL(window.location.href);
 
     browser.storage.local
-      .get(["enabled", "years", "year", "strictFilter", "showSidebarWidget", "hideAnnotations"])
+      .get([
+        "enabled",
+        "years",
+        "year",
+        "strictFilter",
+        "showSidebarWidget",
+        "hideAnnotations",
+        "filterComments"
+      ])
       .then((stored) => {
         if (stored.strictFilter !== undefined) {
           state.strictFilter = stored.strictFilter;
@@ -1047,6 +1228,9 @@
         }
         if (stored.hideAnnotations !== undefined) {
           state.hideAnnotations = stored.hideAnnotations;
+        }
+        if (stored.filterComments !== undefined) {
+          state.filterComments = stored.filterComments;
         }
 
         const storedYears = normalizeYears(stored.years || (stored.year ? [stored.year] : []));
@@ -1070,6 +1254,8 @@
         cleanSearchBarAndTitle();
         injectFilterBar();
         injectSidebarWidget();
+        injectCommentsFilterBar();
+        filterWatchComments();
         scheduleFilter(true);
         if (window.location.pathname === "/watch") {
           setTimeout(() => loadSidebarYearFeed(false), 350);
@@ -1082,9 +1268,12 @@
       if (msg.strictFilter !== undefined) state.strictFilter = msg.strictFilter;
       if (msg.showSidebarWidget !== undefined) state.showSidebarWidget = msg.showSidebarWidget;
       if (msg.hideAnnotations !== undefined) state.hideAnnotations = msg.hideAnnotations;
+      if (msg.filterComments !== undefined) state.filterComments = msg.filterComments;
       syncRootActiveAttribute();
       const incomingYears = msg.years || (msg.year ? [msg.year] : []);
       injectSidebarWidget();
+      injectCommentsFilterBar();
+      filterWatchComments();
       applyYearsToSearch(incomingYears, msg.enabled);
     }
   });
@@ -1094,6 +1283,7 @@
     lastSidebarFetchKey = "";
     cachedSidebarVideos = [];
     lastEndscreenSignature = "";
+    commentScanCount = 0;
     setTimeout(syncStateAndRun, 250);
   });
 
@@ -1109,6 +1299,8 @@
     } else if (window.location.pathname === "/watch") {
       syncRootActiveAttribute();
       injectSidebarWidget();
+      injectCommentsFilterBar();
+      filterWatchComments();
       if (state.enabled && state.years.length) {
         loadSidebarYearFeed(false);
         syncEndscreenRecommendations();

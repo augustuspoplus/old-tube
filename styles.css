@@ -478,3 +478,97 @@ html[data-oldtube-no-annotations="true"] #movie_player .ytp-suggested-action {
 .yt-yf-hidden-by-year {
   display: none !important;
 }
+
+/* Watch Page Comments Year Filter Bar */
+#yt-year-comments-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  border-radius: 10px;
+  background: var(--yt-spec-badge-chip-background, rgba(255, 255, 255, 0.08));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--yt-spec-text-primary, #f1f1f1);
+  font-family: "Roboto", "Arial", sans-serif;
+  font-size: 13px;
+}
+
+html:not([dark]) #yt-year-comments-bar {
+  background: #f2f2f2;
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #0f0f0f;
+}
+
+#yt-year-comments-bar .yt-yf-cm-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+#yt-year-comments-bar .yt-yf-cm-title {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+#yt-year-comments-bar .yt-yf-cm-status {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 0, 51, 0.14);
+  color: #ff4e45;
+  font-weight: 600;
+}
+
+html:not([dark]) #yt-year-comments-bar .yt-yf-cm-status {
+  background: rgba(204, 0, 0, 0.1);
+  color: #cc0000;
+}
+
+#yt-year-comments-bar .yt-yf-cm-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#yt-year-comments-bar .yt-yf-cm-scan-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+html:not([dark]) #yt-year-comments-bar .yt-yf-cm-scan-btn {
+  border-color: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.06);
+}
+
+#yt-year-comments-bar .yt-yf-cm-scan-btn:hover {
+  background: #ff0033;
+  border-color: #ff0033;
+  color: #fff;
+}
+
+#yt-year-comments-bar .yt-yf-cm-toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+#yt-year-comments-bar .yt-yf-cm-toggle-label input {
+  accent-color: #ff0033;
+  cursor: pointer;
+}

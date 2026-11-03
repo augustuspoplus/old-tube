@@ -5,6 +5,7 @@ const yearsGrid = document.getElementById("years-grid");
 const sidebarCheckbox = document.getElementById("sidebar-checkbox");
 const strictCheckbox = document.getElementById("strict-checkbox");
 const annotationsCheckbox = document.getElementById("annotations-checkbox");
+const commentsCheckbox = document.getElementById("comments-checkbox");
 const statusBadge = document.getElementById("status-badge");
 const applyBtn = document.getElementById("apply-btn");
 const clearBtn = document.getElementById("clear-btn");
@@ -59,7 +60,14 @@ function renderUI() {
   });
 }
 
-function saveAndBroadcast(enabled, years, strictFilter, showSidebarWidget, hideAnnotations) {
+function saveAndBroadcast(
+  enabled,
+  years,
+  strictFilter,
+  showSidebarWidget,
+  hideAnnotations,
+  filterComments
+) {
   const norm = normalizeYears(years);
   const isEnabled = Boolean(enabled && norm.length);
   selectedYears = isEnabled ? norm : [];
@@ -71,7 +79,8 @@ function saveAndBroadcast(enabled, years, strictFilter, showSidebarWidget, hideA
       year: selectedYears[0] || "",
       strictFilter,
       showSidebarWidget,
-      hideAnnotations
+      hideAnnotations,
+      filterComments
     })
     .then(() => {
       renderUI();
@@ -86,71 +95,68 @@ function saveAndBroadcast(enabled, years, strictFilter, showSidebarWidget, hideA
           year: selectedYears[0] || "",
           strictFilter,
           showSidebarWidget,
-          hideAnnotations
+          hideAnnotations,
+          filterComments
         });
       }
     });
 }
 
+function broadcastCurrentSettings(enabledOverride) {
+  const isEnabled =
+    enabledOverride !== undefined ? enabledOverride : selectedYears.length > 0;
+  saveAndBroadcast(
+    isEnabled,
+    isEnabled ? selectedYears : [],
+    strictCheckbox.checked,
+    sidebarCheckbox.checked,
+    annotationsCheckbox.checked,
+    commentsCheckbox.checked
+  );
+}
+
 buildYearsGrid();
 
 browser.storage.local
-  .get(["enabled", "years", "year", "strictFilter", "showSidebarWidget", "hideAnnotations"])
+  .get([
+    "enabled",
+    "years",
+    "year",
+    "strictFilter",
+    "showSidebarWidget",
+    "hideAnnotations",
+    "filterComments"
+  ])
   .then((data) => {
     const initialYears = data.years || (data.year ? [data.year] : []);
     selectedYears = data.enabled ? normalizeYears(initialYears) : [];
     strictCheckbox.checked = data.strictFilter !== false;
     sidebarCheckbox.checked = data.showSidebarWidget !== false;
     annotationsCheckbox.checked = data.hideAnnotations !== false;
+    commentsCheckbox.checked = data.filterComments !== false;
     renderUI();
   });
 
 applyBtn.addEventListener("click", () => {
-  saveAndBroadcast(
-    selectedYears.length > 0,
-    selectedYears,
-    strictCheckbox.checked,
-    sidebarCheckbox.checked,
-    annotationsCheckbox.checked
-  );
+  broadcastCurrentSettings(selectedYears.length > 0);
 });
 
 clearBtn.addEventListener("click", () => {
-  saveAndBroadcast(
-    false,
-    [],
-    strictCheckbox.checked,
-    sidebarCheckbox.checked,
-    annotationsCheckbox.checked
-  );
+  broadcastCurrentSettings(false);
 });
 
 sidebarCheckbox.addEventListener("change", () => {
-  saveAndBroadcast(
-    selectedYears.length > 0,
-    selectedYears,
-    strictCheckbox.checked,
-    sidebarCheckbox.checked,
-    annotationsCheckbox.checked
-  );
+  broadcastCurrentSettings();
 });
 
 strictCheckbox.addEventListener("change", () => {
-  saveAndBroadcast(
-    selectedYears.length > 0,
-    selectedYears,
-    strictCheckbox.checked,
-    sidebarCheckbox.checked,
-    annotationsCheckbox.checked
-  );
+  broadcastCurrentSettings();
 });
 
 annotationsCheckbox.addEventListener("change", () => {
-  saveAndBroadcast(
-    selectedYears.length > 0,
-    selectedYears,
-    strictCheckbox.checked,
-    sidebarCheckbox.checked,
-    annotationsCheckbox.checked
-  );
+  broadcastCurrentSettings();
+});
+
+commentsCheckbox.addEventListener("change", () => {
+  broadcastCurrentSettings();
 });
